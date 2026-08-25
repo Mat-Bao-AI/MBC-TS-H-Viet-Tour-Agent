@@ -4,7 +4,7 @@ Input: text thuần đã đọc từ file (app/services/file_processor.py).
 Output: ExtractedTourInfo — tên tour, ngày, điểm đến, danh sách khách.
 """
 
-from app.core.llm import get_llm
+from app.core.llm import get_structured_llm
 from app.schemas.extraction import ExtractedTourInfo
 
 _SYSTEM_PROMPT = """\
@@ -25,8 +25,7 @@ sách đoàn riêng) — gộp lại, tránh trùng lặp theo tên+SĐT.
 
 
 async def extract_tour_info(itinerary_text: str, guest_list_text: str | None = None) -> ExtractedTourInfo:
-    llm = get_llm(temperature=0.1)
-    structured_llm = llm.with_structured_output(ExtractedTourInfo)
+    structured_llm = get_structured_llm(ExtractedTourInfo, temperature=0.1)
 
     user_content = f"## Tài liệu lịch trình tour\n{itinerary_text.strip()}"
     if guest_list_text and guest_list_text.strip():

@@ -23,8 +23,20 @@ class Settings(BaseSettings):
     # Redis / Celery
     redis_url: str = "redis://localhost:6379/0"
 
-    # AI provider
+    # AI provider — Gemini
     gemini_api_key: str = ""
+
+    # AI provider — Azure OpenAI (thay thế/song song với Gemini). Nếu cả 2 đều
+    # được cấu hình thật (không phải placeholder) cùng lúc, hệ thống tự cảnh
+    # báo + dùng cơ chế fallback giữa 2 provider — xem app/core/llm.py.
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: str = ""
+    azure_openai_deployment: str = ""
+    azure_openai_model: str = ""
+    azure_openai_api_version: str = "2024-12-01-preview"
+
+    # Provider thử trước khi có ≥2 provider cùng cấu hình ("gemini" | "azure_openai")
+    llm_primary_provider: str = "gemini"
 
     # Ports (chỉ dùng khi chạy ngoài docker compose)
     backend_port: int = 8000
@@ -52,6 +64,51 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
+
+    @staticmethod
+    def _is_configured(value: str) -> bool:
+        """Coi là "đã cấu hình thật" nếu khác rỗng và không phải placeholder
+        kiểu your_..._here còn sót lại từ .env.example (rất dễ quên điền)."""
+        v = value.strip()
+        return bool(v) and not v.lower().startswith("your_")
+
+    @property
+    def gemini_configured(self) -> bool:
+        return self._is_configured(self.gemini_api_key)
+
+    @property
+    def azure_openai_configured(self) -> bool:
+        return all(
+            self._is_configured(v)
+            for v in (
+                self.azure_openai_endpoint,
+                self.azure_openai_api_key,
+                self.azure_openai_deployment,
+            )
+        )
+
+    @property
+    def configured_llm_providers(self) -> list[str]:
+        providers = []
+        if self.gemini_configured:
+            providers.append("gemini")
+        if self.azure_openai_configured:
+            providers.append("azure_openai")
+        return providers
+
+    @property
+    def effective_primary_llm_provider(self) -> str | None:
+        """Provider THỰC SỰ được dùng đầu tiên — khác `llm_primary_provider`
+        (chỉ là preference) khi provider đó chưa thật sự được cấu hình. Vd:
+        LLM_PRIMARY_PROVIDER=gemini nhưng chỉ Azure OpenAI có key thật -> trả
+        về "azure_openai", không phải "gemini". Dùng chung cho get_structured_llm
+        (app/core/llm.py) và /health (app/main.py) để tránh lệch nhau."""
+        providers = self.configured_llm_providers
+        if not providers:
+            return None
+        if self.llm_primary_provider in providers:
+            return self.llm_primary_provider
+        return providers[0]
 
     @property
     def sync_database_url(self) -> str:

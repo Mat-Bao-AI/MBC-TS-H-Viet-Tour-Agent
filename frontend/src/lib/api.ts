@@ -53,6 +53,16 @@ export type ZaloLoginStatus = {
   error: string | null;
 };
 
+export type HealthStatus = {
+  status: string;
+  environment: string;
+  llm_providers: {
+    configured: string[];
+    primary: string | null;
+    fallback_active: boolean;
+  };
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "X-API-Key": API_KEY };
   if (!(init?.body instanceof FormData)) {
@@ -70,6 +80,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // /health nằm ngoài prefix /api/v1 và không yêu cầu API key — gọi thẳng
+  // API_BASE, không qua request() (khác path prefix với các API còn lại).
+  getHealth: async (): Promise<HealthStatus> => {
+    const res = await fetch(`${API_BASE}/health`);
+    if (!res.ok) throw new Error(`API /health lỗi ${res.status}`);
+    return res.json();
+  },
+
   listTours: () => request<TourListItem[]>("/tours"),
 
   createTour: (formData: FormData) =>

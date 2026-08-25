@@ -4,7 +4,7 @@ trích xuất (ExtractedTourInfo).
 Phase 1: chưa tích hợp weather_service (dời Phase 2 — xem README).
 """
 
-from app.core.llm import get_llm
+from app.core.llm import get_structured_llm
 from app.schemas.extraction import ExtractedTourInfo
 from app.schemas.timeline import TimelineEventSchema, TimelineResult
 
@@ -32,8 +32,7 @@ ra được từ start_date/end_date hoặc số điểm đến, không bịa th
 
 
 async def build_timeline(extracted: ExtractedTourInfo) -> list[TimelineEventSchema]:
-    llm = get_llm(temperature=0.3)
-    structured_llm = llm.with_structured_output(TimelineResult)
+    structured_llm = get_structured_llm(TimelineResult, temperature=0.3)
 
     user_content = (
         f"Tên tour: {extracted.tour_name}\n"

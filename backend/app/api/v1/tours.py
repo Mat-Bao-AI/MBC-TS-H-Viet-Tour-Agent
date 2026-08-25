@@ -21,8 +21,16 @@ router = APIRouter(prefix="/tours", tags=["tours"])
 settings = get_settings()
 
 
+_CHUNK_SIZE = 1024 * 1024  # 1MB
+
+
 def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
-    """Lưu file upload vào disk, trả về (đường dẫn đã lưu, tên file gốc)."""
+    """Lưu file upload vào disk, trả về (đường dẫn đã lưu, tên file gốc).
+
+    Đọc theo chunk + chặn ngay khi vượt max_upload_size_mb — tránh vừa buffer
+    nguyên file khổng lồ vào RAM vừa ghi hết ra disk trước khi biết là quá lớn
+    (DoS bằng file dung lượng lớn).
+    """
     upload_dir = Path(settings.upload_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -30,8 +38,21 @@ def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
     saved_name = f"{tour_id}_{uuid.uuid4().hex[:8]}{ext}"
     saved_path = upload_dir / saved_name
 
-    with saved_path.open("wb") as out:
-        out.write(file.file.read())
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    total = 0
+    try:
+        with saved_path.open("wb") as out:
+            while chunk := file.file.read(_CHUNK_SIZE):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File vượt quá giới hạn {settings.max_upload_size_mb}MB.",
+                    )
+                out.write(chunk)
+    except HTTPException:
+        saved_path.unlink(missing_ok=True)
+        raise
 
     return str(saved_path), file.filename or saved_name
 

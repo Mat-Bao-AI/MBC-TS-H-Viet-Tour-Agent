@@ -36,6 +36,13 @@ const SESSION_FILE = path.resolve("./storage/session.json");
  */
 let state = { status: "idle", qrDataUrl: null, displayName: null, error: null, api: null };
 
+/**
+ * ⚠️ BẢO MẬT: {cookie, imei} tương đương credential đăng nhập Zalo cá nhân —
+ * lưu ra storage/session.json dưới dạng PLAINTEXT (không mã hoá), chỉ để
+ * tham khảo/dùng thủ công, KHÔNG tự động nạp lại (xem ghi chú đầu file). Đã
+ * gitignore, nhưng nếu server bị xâm nhập, ai đọc được file này có thể chiếm
+ * phiên Zalo. Không copy file này ra ngoài, không log nội dung ra console.
+ */
 async function persistLoginInfo({ cookie, imei, userAgent }) {
   try {
     await fs.mkdir(path.dirname(SESSION_FILE), { recursive: true });

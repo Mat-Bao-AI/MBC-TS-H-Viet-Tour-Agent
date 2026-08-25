@@ -9,8 +9,10 @@ services:
       MYSQL_USER: ${MYSQL_USER:-tourguide}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tourguide_pass}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    ports:
-      - "3306:3306"
+    # Không publish port ra host — chỉ backend/celery_worker cần kết nối, đã
+    # cùng Docker network rồi. `docker compose exec mysql mysql -u... ` để
+    # debug thay vì connect từ host. (từng lộ port này ra 0.0.0.0 với password
+    # mặc định yếu — sửa trong lúc /my-sec audit)
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -23,8 +25,7 @@ services:
     image: redis:7-alpine
     container_name: tour_redis
     restart: always
-    ports:
-      - "6379:6379"
+    # Không publish port ra host — lý do tương tự mysql ở trên.
 
   # Sidecar Node.js bọc zca-js (unofficial Zalo Personal Client, hỗ trợ QR
   # login) — thư viện Python thuần (zlapi) KHÔNG hỗ trợ QR login nên tách
@@ -33,6 +34,8 @@ services:
     build: ./zalo-bridge
     container_name: tour_zalo_bridge
     restart: always
+    environment:
+      API_KEY: ${API_KEY}
     ports:
       - "4000:4000"
     volumes:
@@ -77,6 +80,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_KEY: ${API_KEY}
     container_name: tour_frontend
     restart: always
     env_file:

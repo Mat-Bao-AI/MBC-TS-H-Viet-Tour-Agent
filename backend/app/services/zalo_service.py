@@ -19,6 +19,12 @@ def _bridge_url(path: str) -> str:
     return f"{settings.zalo_bridge_url.rstrip('/')}{path}"
 
 
+def _bridge_headers() -> dict:
+    # zalo_bridge dùng chung API_KEY với backend (xem docker-compose.yml) —
+    # 1 secret nội bộ giữa 2 service, không phải key của HDV.
+    return {"x-api-key": get_settings().api_key}
+
+
 def _raise_for_bridge_error(response: httpx.Response) -> None:
     if response.status_code >= 400:
         try:
@@ -33,14 +39,14 @@ def _raise_for_bridge_error(response: httpx.Response) -> None:
 
 async def start_qr_login() -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
-        response = await client.post(_bridge_url("/login/qr/start"))
+        response = await client.post(_bridge_url("/login/qr/start"), headers=_bridge_headers())
         _raise_for_bridge_error(response)
         return response.json()
 
 
 async def get_login_status() -> dict:
     async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(_bridge_url("/login/status"))
+        response = await client.get(_bridge_url("/login/status"), headers=_bridge_headers())
         _raise_for_bridge_error(response)
         return response.json()
 
@@ -48,7 +54,9 @@ async def get_login_status() -> dict:
 async def resolve_user_by_phone(phone_number: str) -> dict | None:
     """Trả về {"zaloId": ..., "displayName": ...} hoặc None nếu không tìm thấy."""
     async with httpx.AsyncClient(timeout=15) as client:
-        response = await client.get(_bridge_url("/users/resolve"), params={"phone": phone_number})
+        response = await client.get(
+            _bridge_url("/users/resolve"), params={"phone": phone_number}, headers=_bridge_headers()
+        )
         if response.status_code == 404:
             return None
         _raise_for_bridge_error(response)
@@ -60,13 +68,17 @@ async def resolve_user_by_phone(phone_number: str) -> dict | None:
 
 def send_message_sync(zalo_id: str, text: str) -> None:
     with httpx.Client(timeout=20) as client:
-        response = client.post(_bridge_url("/messages/send"), json={"zaloId": zalo_id, "text": text})
+        response = client.post(
+            _bridge_url("/messages/send"), json={"zaloId": zalo_id, "text": text}, headers=_bridge_headers()
+        )
         _raise_for_bridge_error(response)
 
 
 def resolve_user_by_phone_sync(phone_number: str) -> dict | None:
     with httpx.Client(timeout=15) as client:
-        response = client.get(_bridge_url("/users/resolve"), params={"phone": phone_number})
+        response = client.get(
+            _bridge_url("/users/resolve"), params={"phone": phone_number}, headers=_bridge_headers()
+        )
         if response.status_code == 404:
             return None
         _raise_for_bridge_error(response)

@@ -1,5 +1,9 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const V1 = `${API_BASE}/api/v1`;
+// NEXT_PUBLIC_* bị inline vào bundle trình duyệt lúc build — key này KHÔNG bí
+// mật với người mở DevTools trên trang. Chỉ chặn truy cập ngẫu nhiên từ ngoài,
+// không phải auth thật (xem app/core/security.py ở backend).
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
 export type DispatchGuestStatus = "pending" | "sent" | "read" | "confirmed" | "failed";
@@ -50,9 +54,13 @@ export type ZaloLoginStatus = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "X-API-Key": API_KEY };
+  if (!(init?.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   const res = await fetch(`${V1}${path}`, {
     ...init,
-    headers: init?.body instanceof FormData ? init.headers : { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
   });
   if (!res.ok) {
     const text = await res.text();

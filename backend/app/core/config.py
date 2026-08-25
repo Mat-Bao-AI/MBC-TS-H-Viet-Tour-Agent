@@ -26,9 +26,6 @@ class Settings(BaseSettings):
     # AI provider
     gemini_api_key: str = ""
 
-    # Zalo (Phase 1: unofficial Personal Client via zlapi, QR login)
-    zalo_session_dir: str = "./storage/zalo_session"
-
     # Ports (chỉ dùng khi chạy ngoài docker compose)
     backend_port: int = 8000
     frontend_port: int = 3000
@@ -38,6 +35,19 @@ class Settings(BaseSettings):
 
     # Thư mục lưu file tài liệu tour đã upload (Phase 1: local storage)
     upload_dir: str = "./storage/uploads"
+    max_upload_size_mb: int = 20
+
+    # API key tối thiểu bảo vệ toàn bộ /api/v1/* (xem app/core/security.py).
+    # ⚠️ KHÔNG phải auth đầy đủ (chưa có user/role) — chỉ đủ chặn truy cập ngẫu
+    # nhiên từ mạng ngoài. Frontend gửi key này qua NEXT_PUBLIC_API_KEY (biến
+    # NEXT_PUBLIC_* bị inline vào bundle trình duyệt — bất kỳ ai mở DevTools
+    # trên trang đều đọc được key). Phù hợp scope MVP 1 HDV/1 workspace; KHÔNG
+    # đủ an toàn nếu đây là hệ thống nhiều người dùng không tin tưởng lẫn nhau.
+    api_key: str = ""
+
+    # Domain frontend thật được phép gọi API khi ENVIRONMENT=production (CORS).
+    # Để trống ở production nghĩa là KHÔNG origin nào gọi được — phải set khi deploy.
+    allowed_origin: str = ""
 
     @property
     def is_production(self) -> bool:

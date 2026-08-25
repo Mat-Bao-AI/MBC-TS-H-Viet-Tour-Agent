@@ -5,9 +5,24 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
+const API_KEY = process.env.API_KEY || "";
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+// API key tối thiểu — cùng cơ chế với backend (app/core/security.py). Service
+// này gọi trực tiếp được API gửi tin Zalo cá nhân nên đặc biệt cần chặn truy
+// cập ngẫu nhiên nếu port 4000 lỡ lộ ra ngoài mạng nội bộ.
+app.use((req, res, next) => {
+  if (req.path === "/health") return next();
+  if (!API_KEY) {
+    return res.status(500).json({ error: "API_KEY chưa được cấu hình cho zalo-bridge." });
+  }
+  if (req.get("x-api-key") !== API_KEY) {
+    return res.status(401).json({ error: "Thiếu hoặc sai x-api-key." });
+  }
+  next();
 });
 
 app.post("/login/qr/start", (_req, res) => {

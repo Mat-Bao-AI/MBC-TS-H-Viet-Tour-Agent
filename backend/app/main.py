@@ -14,10 +14,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# allow_credentials=False vì auth dùng header X-API-Key (không phải cookie) —
+# tránh luôn tổ hợp allow_origins="*" + allow_credentials=True (trình duyệt
+# chặn, và là anti-pattern CORS phổ biến).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if not settings.is_production else [],
-    allow_credentials=True,
+    allow_origins=[settings.allowed_origin] if settings.is_production else ["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

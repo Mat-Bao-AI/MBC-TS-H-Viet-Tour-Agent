@@ -52,7 +52,10 @@ Chi tiết cấu trúc thư mục: xem mục 5 trong
 
 ```bash
 cp .env.example .env
-# Điền GEMINI_API_KEY vào .env trước khi chạy
+# 1. Điền GEMINI_API_KEY vào .env
+# 2. Tạo API_KEY (bắt buộc — backend/zalo_bridge từ chối chạy nếu thiếu):
+#      openssl rand -hex 32
+#    Dán giá trị vào cả API_KEY trong .env
 
 docker compose up -d --build
 ```
@@ -71,6 +74,24 @@ Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
 - ✅ Đăng nhập Zalo QR: `zalo_bridge` sinh mã QR thật (ảnh PNG base64 hợp lệ) qua `zca-js`
 - ✅ Toàn bộ trang frontend (`/`, `/tours/create`, `/tours/[id]/review`, `/tours/[id]/dispatch`) render HTTP 200
 - ⏳ Chưa test được: agent trích xuất/sinh timeline thật (cần `GEMINI_API_KEY` thật), quét QR bằng điện thoại thật để hoàn tất đăng nhập, gửi tin Zalo thật
+
+## Bảo mật
+
+Đã chạy `/my-sec` audit (2026-08-25) và sửa các mục tìm được:
+
+- ✅ **API key tối thiểu** (`X-API-Key`) chặn toàn bộ `/api/v1/*` và `zalo-bridge` —
+  xem `app/core/security.py`. ⚠️ Không phải auth đầy đủ (chưa có user/role),
+  và `NEXT_PUBLIC_API_KEY` bị inline vào bundle trình duyệt nên không bí mật
+  với người đã mở được trang. Đủ cho scope MVP 1 HDV/1 workspace chạy nội bộ —
+  **không deploy public rộng rãi khi chưa có auth thật (user/session/role)**.
+- ✅ 4 dependency có CVE đã biết (`pypdf`, `python-multipart`, `aiomysql`,
+  `starlette` qua `fastapi` cũ) đã bump lên bản vá, `pip-audit` xác nhận 0 CVE.
+- ✅ MySQL/Redis không còn publish port ra host (chỉ Docker network nội bộ).
+- ✅ Giới hạn dung lượng file upload (`MAX_UPLOAD_SIZE_MB`, mặc định 20MB).
+- ✅ Session Zalo (`zalo-bridge/storage/session.json`) đã ghi rõ cảnh báo lưu
+  plaintext trên disk, không log ra console, đã gitignore.
+- ⚠️ CORS production đọc từ `ALLOWED_ORIGIN` — **phải set domain thật khi
+  deploy**, để trống sẽ chặn hết kể cả frontend thật.
 
 ## Quy trình sử dụng (Phase 1)
 

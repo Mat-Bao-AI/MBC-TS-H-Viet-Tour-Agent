@@ -1,0 +1,15 @@
+{
+  "name": "zalo-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sidecar Node.js bọc zca-js (unofficial Zalo Personal Client) — backend Python gọi qua HTTP nội bộ vì zca-js chỉ có bản JS, không có bản Python hỗ trợ QR login.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "zca-js": "^2.1.2"
+  }
+}

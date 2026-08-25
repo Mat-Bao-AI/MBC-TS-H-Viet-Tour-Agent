@@ -1,0 +1,34 @@
+"""Schema structured-output cho parser_agent (Gemini trích xuất dữ liệu thô).
+
+Dùng làm target của `ChatGoogleGenerativeAI.with_structured_output(...)` —
+Gemini bắt buộc trả đúng shape này thay vì text tự do, giảm rủi ro parse lỗi.
+"""
+
+from pydantic import BaseModel, Field
+
+
+class ExtractedGuest(BaseModel):
+    full_name: str = Field(description="Họ tên đầy đủ của khách, giữ nguyên dấu tiếng Việt")
+    phone_number: str | None = Field(
+        default=None, description="Số điện thoại nếu tài liệu có, giữ nguyên định dạng gốc"
+    )
+    seat_number: str | None = Field(default=None, description="Số ghế xe/máy bay nếu có")
+    room_number: str | None = Field(default=None, description="Số phòng khách sạn nếu có")
+    dietary_note: str | None = Field(
+        default=None, description="Lưu ý ăn uống riêng / dị ứng / yêu cầu đặc biệt nếu có"
+    )
+
+
+class ExtractedTourInfo(BaseModel):
+    tour_name: str = Field(description="Tên tour, suy ra từ tài liệu nếu không ghi rõ")
+    start_date: str | None = Field(default=None, description="Ngày bắt đầu, định dạng YYYY-MM-DD nếu xác định được")
+    end_date: str | None = Field(default=None, description="Ngày kết thúc, định dạng YYYY-MM-DD nếu xác định được")
+    destinations: list[str] = Field(
+        default_factory=list, description="Danh sách điểm đến/điểm tham quan chính theo thứ tự trong tài liệu"
+    )
+    raw_notes: str | None = Field(
+        default=None, description="Ghi chú tổng quan khác không thuộc timeline hay danh sách khách"
+    )
+    guests: list[ExtractedGuest] = Field(
+        default_factory=list, description="Danh sách khách trích xuất được (từ tài liệu lịch trình và/hoặc danh sách đoàn)"
+    )

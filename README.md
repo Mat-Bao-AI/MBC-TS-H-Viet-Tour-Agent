@@ -63,6 +63,15 @@ docker compose up -d --build
 - Frontend (giao diện HDV): http://localhost:3000
 - Backend API docs (Swagger): http://localhost:8000/docs
 
+Hoặc dùng script tiện lợi (tự in URL sau khi start/restart):
+
+```bash
+scripts/app.sh start     # build lại nếu code đổi + khởi động toàn bộ
+scripts/app.sh stop      # dừng + gỡ container
+scripts/app.sh restart   # restart container đang chạy, KHÔNG rebuild
+scripts/app.sh status    # xem trạng thái hiện tại
+```
+
 Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
 `docker compose restart backend celery_worker` để container đọc lại `.env`.
 

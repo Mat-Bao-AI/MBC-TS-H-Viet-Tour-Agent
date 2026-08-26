@@ -60,7 +60,13 @@ function handleLoginQrEvent(event) {
   switch (event.type) {
     case LoginQRCallbackEventType.QRCodeGenerated:
       state.status = "qr_pending";
-      state.qrDataUrl = event.data.image; // zca-js trả sẵn base64/data-url, không cần đọc file
+      // zca-js (dist/apis/loginQR.js) TỰ STRIP tiền tố "data:image/png;base64,"
+      // khỏi event.data.image trước khi gọi callback — event.data.image chỉ là
+      // base64 thuần, phải tự thêm lại tiền tố mới render được như <img src>.
+      // Thiếu bước này khiến browser hiểu chuỗi base64 là 1 URL/path và cố gọi
+      // HTTP request với path dài hàng chục KB -> lỗi 431 Request Header Fields
+      // Too Large (đã gặp thật, xem lịch sử debug).
+      state.qrDataUrl = `data:image/png;base64,${event.data.image}`;
       break;
     case LoginQRCallbackEventType.QRCodeExpired:
       state.status = "error";

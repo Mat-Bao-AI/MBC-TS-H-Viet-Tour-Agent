@@ -76,6 +76,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     throw new Error(`API ${path} lỗi ${res.status}: ${text}`);
   }
+  if (res.status === 204) return undefined as T; // vd DELETE — không có body để parse
   return res.json();
 }
 
@@ -114,6 +115,27 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+
+  addGuest: (
+    tourId: string,
+    payload: { full_name: string; phone_number?: string; seat_number?: string; room_number?: string; dietary_note?: string }
+  ) =>
+    request<Guest>(`/tours/${tourId}/guests`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteGuest: (tourId: string, guestId: string) =>
+    request<void>(`/tours/${tourId}/guests/${guestId}`, { method: "DELETE" }),
+
+  importGuestList: (tourId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("guest_list_file", file);
+    return request<{ added: number; updated: number; guests: Guest[] }>(`/tours/${tourId}/guests/import`, {
+      method: "POST",
+      body: formData,
+    });
+  },
 
   startZaloLogin: () => request<ZaloLoginStatus>("/auth/zalo/login/start", { method: "POST" }),
 

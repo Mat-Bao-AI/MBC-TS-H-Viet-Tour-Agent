@@ -67,27 +67,11 @@ async def process_tour(tour_id: str) -> None:
             else:
                 timeline.events = events_json
 
+            from app.api.v1.tours import upsert_guests_from_extraction  # tránh vòng import lúc module load
+
             existing_guests_result = await db.execute(select(Guest).where(Guest.tour_id == tour.id))
             existing_guests = {g.phone_number: g for g in existing_guests_result.scalars().all() if g.phone_number}
-
-            for extracted_guest in extracted.guests:
-                existing = existing_guests.get(extracted_guest.phone_number)
-                if existing:
-                    existing.full_name = extracted_guest.full_name or existing.full_name
-                    existing.seat_number = extracted_guest.seat_number or existing.seat_number
-                    existing.room_number = extracted_guest.room_number or existing.room_number
-                    existing.dietary_note = extracted_guest.dietary_note or existing.dietary_note
-                else:
-                    db.add(
-                        Guest(
-                            tour_id=tour.id,
-                            full_name=extracted_guest.full_name,
-                            phone_number=extracted_guest.phone_number,
-                            seat_number=extracted_guest.seat_number,
-                            room_number=extracted_guest.room_number,
-                            dietary_note=extracted_guest.dietary_note,
-                        )
-                    )
+            upsert_guests_from_extraction(db, tour.id, extracted.guests, existing_guests)
 
             tour.status = TourStatus.REVIEW
             await db.commit()

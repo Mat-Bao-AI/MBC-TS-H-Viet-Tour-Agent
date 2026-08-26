@@ -139,11 +139,13 @@ export default function DispatchTourPage() {
           <CardContent className="flex flex-col gap-4">
             {guests && (
               <GuestSelector
+                tourId={tourId}
                 guests={guests}
                 selectedIds={selectedIds}
                 onToggle={toggleGuest}
                 onToggleAll={toggleAll}
                 onPreview={setPreviewGuestId}
+                onGuestsChanged={loadGuests}
               />
             )}
 

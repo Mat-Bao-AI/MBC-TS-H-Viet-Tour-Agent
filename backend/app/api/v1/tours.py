@@ -1,5 +1,6 @@
 """tours.py — CRUD tour, upload tài liệu, xem/sửa timeline & khách."""
 
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -13,8 +14,17 @@ from app.core.database import get_db
 from app.models.guest import Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
+from app.schemas.extraction import ExtractedGuest
 from app.schemas.timeline import TimelineUpdateRequest
-from app.schemas.tour import GuestOut, GuestUpdateRequest, TourCreateResponse, TourDetail, TourListItem
+from app.schemas.tour import (
+    GuestCreateRequest,
+    GuestImportResponse,
+    GuestOut,
+    GuestUpdateRequest,
+    TourCreateResponse,
+    TourDetail,
+    TourListItem,
+)
 
 router = APIRouter(prefix="/tours", tags=["tours"])
 
@@ -55,6 +65,44 @@ def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
         raise
 
     return str(saved_path), file.filename or saved_name
+
+
+def upsert_guests_from_extraction(
+    db: AsyncSession, tour_id: str, extracted_guests: list[ExtractedGuest], existing_by_phone: dict[str, Guest]
+) -> tuple[int, int, list[Guest]]:
+    """Ghi danh sách khách trích xuất được vào DB — match theo SĐT, khách đã
+    có thì cập nhật (không mất dispatch_status/zalo_id), khách mới thì thêm.
+    Dùng chung cho cả lúc parse tour ban đầu (agent.py) lẫn import bổ sung
+    (POST /tours/{id}/guests/import bên dưới)."""
+    added = 0
+    updated = 0
+    result_guests: list[Guest] = []
+
+    for eg in extracted_guests:
+        existing = existing_by_phone.get(eg.phone_number) if eg.phone_number else None
+        if existing:
+            existing.full_name = eg.full_name or existing.full_name
+            existing.seat_number = eg.seat_number or existing.seat_number
+            existing.room_number = eg.room_number or existing.room_number
+            existing.dietary_note = eg.dietary_note or existing.dietary_note
+            updated += 1
+            result_guests.append(existing)
+        else:
+            new_guest = Guest(
+                tour_id=tour_id,
+                full_name=eg.full_name,
+                phone_number=eg.phone_number,
+                seat_number=eg.seat_number,
+                room_number=eg.room_number,
+                dietary_note=eg.dietary_note,
+            )
+            db.add(new_guest)
+            added += 1
+            result_guests.append(new_guest)
+            if eg.phone_number:
+                existing_by_phone[eg.phone_number] = new_guest
+
+    return added, updated, result_guests
 
 
 @router.post("", response_model=TourCreateResponse)
@@ -145,6 +193,74 @@ async def update_timeline(
     await db.commit()
 
     return await get_tour(tour_id, db)
+
+
+@router.post("/{tour_id}/guests", response_model=GuestOut)
+async def add_guest(tour_id: str, payload: GuestCreateRequest, db: AsyncSession = Depends(get_db)) -> Guest:
+    """Thêm 1 khách thủ công — dùng khi HDV quên upload danh sách đoàn lúc
+    tạo tour, hoặc chỉ có vài khách phát sinh thêm sau."""
+    await _get_tour_or_404(tour_id, db)  # 404 sớm nếu tour không tồn tại
+
+    guest = Guest(tour_id=tour_id, **payload.model_dump())
+    db.add(guest)
+    await db.commit()
+    await db.refresh(guest)
+    return guest
+
+
+@router.post("/{tour_id}/guests/import", response_model=GuestImportResponse)
+async def import_guests(
+    tour_id: str, guest_list_file: UploadFile, db: AsyncSession = Depends(get_db)
+) -> GuestImportResponse:
+    """Import danh sách khách từ 1 file riêng (PDF/DOCX/XLSX/TXT) vào tour đã
+    có sẵn — bù cho trường hợp HDV không upload danh sách đoàn lúc tạo tour.
+    Không lưu file lâu dài (chỉ dùng tạm để trích xuất), khác _save_upload."""
+    from app.agents.parser_agent import extract_guest_list
+    from app.services import file_processor
+
+    tour = await _get_tour_or_404(tour_id, db)
+
+    suffix = Path(guest_list_file.filename or "").suffix
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+        content = await guest_list_file.read()
+        if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File vượt quá giới hạn {settings.max_upload_size_mb}MB.")
+        tmp.write(content)
+        tmp.flush()
+
+        try:
+            text = file_processor.extract_text(tmp.name)
+        except file_processor.UnsupportedFileTypeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        extracted_guests = await extract_guest_list(text)
+    except Exception as exc:  # noqa: BLE001 — lỗi LLM (quota, key sai...) cần hiện rõ cho HDV, không chỉ 500 trơn
+        raise HTTPException(status_code=502, detail=f"Agent trích xuất danh sách lỗi: {exc}") from exc
+
+    if not extracted_guests:
+        raise HTTPException(status_code=422, detail="Không tìm thấy khách nào trong file — kiểm tra lại định dạng.")
+
+    existing_result = await db.execute(select(Guest).where(Guest.tour_id == tour.id))
+    existing_by_phone = {g.phone_number: g for g in existing_result.scalars().all() if g.phone_number}
+
+    added, updated, guests = upsert_guests_from_extraction(db, tour.id, extracted_guests, existing_by_phone)
+    await db.commit()
+    for g in guests:
+        await db.refresh(g)
+
+    return GuestImportResponse(added=added, updated=updated, guests=[GuestOut.model_validate(g) for g in guests])
+
+
+@router.delete("/{tour_id}/guests/{guest_id}", status_code=204)
+async def delete_guest(tour_id: str, guest_id: str, db: AsyncSession = Depends(get_db)) -> None:
+    result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
+    guest = result.scalar_one_or_none()
+    if guest is None:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy khách {guest_id} trong tour {tour_id}")
+
+    await db.delete(guest)
+    await db.commit()
 
 
 @router.put("/{tour_id}/guests/{guest_id}", response_model=GuestOut)

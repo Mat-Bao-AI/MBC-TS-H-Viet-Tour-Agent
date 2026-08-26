@@ -19,6 +19,14 @@ class ExtractedGuest(BaseModel):
     )
 
 
+class ExtractedGuestList(BaseModel):
+    """Wrapper cho structured output — with_structured_output cần 1 model gốc,
+    không nhận thẳng list[ExtractedGuest]. Dùng cho import danh sách đoàn độc
+    lập (không kèm tài liệu lịch trình) — xem parser_agent.extract_guest_list."""
+
+    guests: list[ExtractedGuest] = Field(default_factory=list, description="Toàn bộ khách tìm thấy trong tài liệu")
+
+
 class ExtractedTourInfo(BaseModel):
     tour_name: str = Field(description="Tên tour, suy ra từ tài liệu nếu không ghi rõ")
     start_date: str | None = Field(default=None, description="Ngày bắt đầu, định dạng YYYY-MM-DD nếu xác định được")

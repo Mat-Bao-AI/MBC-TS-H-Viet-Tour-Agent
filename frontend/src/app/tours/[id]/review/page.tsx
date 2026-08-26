@@ -129,10 +129,12 @@ export default function ReviewTourPage() {
             </CardHeader>
             <CardContent>
               <GuestSelector
+                tourId={tourId}
                 guests={tour.guests}
                 selectedIds={new Set()}
                 onToggle={() => {}}
                 onToggleAll={() => {}}
+                onGuestsChanged={load}
               />
               <div className="mt-4">
                 <Link href={`/tours/${tourId}/dispatch`}>

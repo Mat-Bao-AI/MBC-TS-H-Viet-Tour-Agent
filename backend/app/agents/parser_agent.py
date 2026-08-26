@@ -5,7 +5,7 @@ Output: ExtractedTourInfo — tên tour, ngày, điểm đến, danh sách khác
 """
 
 from app.core.llm import get_structured_llm
-from app.schemas.extraction import ExtractedTourInfo
+from app.schemas.extraction import ExtractedGuest, ExtractedGuestList, ExtractedTourInfo
 
 _SYSTEM_PROMPT = """\
 Bạn là trợ lý AI chuyên xử lý tài liệu lữ hành tiếng Việt cho hướng dẫn viên \
@@ -38,3 +38,32 @@ async def extract_tour_info(itinerary_text: str, guest_list_text: str | None = N
         ]
     )
     return result
+
+
+_GUEST_LIST_SYSTEM_PROMPT = """\
+Bạn là trợ lý AI đọc danh sách đoàn khách du lịch tiếng Việt (thường ở dạng \
+bảng Excel hoặc text tự do: tên, số điện thoại, số ghế, số phòng, ghi chú ăn \
+uống...) và trích xuất đúng từng khách một.
+
+Quy tắc:
+- KHÔNG bịa thông tin không có trong tài liệu — trường nào không thấy thì để trống.
+- Giữ nguyên tên riêng, số điện thoại đúng định dạng gốc.
+- Mỗi dòng/mỗi mục thường là 1 khách — đừng gộp nhiều người vào 1 bản ghi trừ \
+khi tài liệu rõ ràng ghi chung (vd "2 vợ chồng: Anh A & chị B" thì tách thành 2).
+"""
+
+
+async def extract_guest_list(text: str) -> list[ExtractedGuest]:
+    """Trích xuất DANH SÁCH KHÁCH từ 1 file độc lập (không kèm tài liệu lịch
+    trình) — dùng cho luồng "Nhập danh sách" bổ sung khách vào tour đã có
+    (app/api/v1/tours.py: import_guests), khác với extract_tour_info ở trên
+    (bắt buộc phải có tour_name nên không hợp cho trường hợp chỉ có khách)."""
+    structured_llm = get_structured_llm(ExtractedGuestList, temperature=0.1)
+
+    result = await structured_llm.ainvoke(
+        [
+            ("system", _GUEST_LIST_SYSTEM_PROMPT),
+            ("human", f"## Danh sách đoàn\n{text.strip()}"),
+        ]
+    )
+    return result.guests

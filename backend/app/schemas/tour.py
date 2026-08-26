@@ -31,6 +31,20 @@ class GuestUpdateRequest(BaseModel):
     dietary_note: str | None = None
 
 
+class GuestCreateRequest(BaseModel):
+    full_name: str
+    phone_number: str | None = None
+    seat_number: str | None = None
+    room_number: str | None = None
+    dietary_note: str | None = None
+
+
+class GuestImportResponse(BaseModel):
+    added: int
+    updated: int
+    guests: list[GuestOut]
+
+
 class TourListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

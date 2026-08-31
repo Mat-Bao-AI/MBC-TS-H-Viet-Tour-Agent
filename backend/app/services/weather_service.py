@@ -56,11 +56,13 @@ def _describe_weather_code(code: int | None) -> tuple[str, str]:
     return _WEATHER_CODE_VI.get(code, ("Không xác định", "🌡️"))
 
 
-async def geocode(location_name: str) -> tuple[float, float] | None:
-    """Tên địa danh tự do (vd "Vịnh Hạ Long") -> (latitude, longitude), hoặc
-    None nếu Open-Meteo không tìm thấy / lỗi mạng — KHÔNG raise, cùng hợp
-    đồng "graceful degrade" với get_forecast() (1 địa điểm lỗi không được
-    kéo sập toàn bộ danh sách weather của trang)."""
+async def geocode(location_name: str) -> tuple[float, float, str] | None:
+    """Tên địa danh tự do (vd "Vịnh Hạ Long") -> (latitude, longitude,
+    tên_địa_danh_chuẩn_hoá), hoặc None nếu Open-Meteo không tìm thấy / lỗi
+    mạng — KHÔNG raise, cùng hợp đồng "graceful degrade" với get_forecast()
+    (1 địa điểm lỗi không được kéo sập toàn bộ danh sách weather của trang).
+    Tên chuẩn hoá (vd "Đà Lạt" thay vì tên nhà hàng/khách sạn cụ thể không
+    geocode được) dùng để hiển thị — xem compute_tour_weather()."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(
@@ -73,7 +75,8 @@ async def geocode(location_name: str) -> tuple[float, float] | None:
 
     if not results:
         return None
-    return results[0]["latitude"], results[0]["longitude"]
+    result = results[0]
+    return result["latitude"], result["longitude"], result.get("name", location_name)
 
 
 async def get_forecast(latitude: float, longitude: float, date: str) -> dict | None:

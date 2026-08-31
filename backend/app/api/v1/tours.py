@@ -221,50 +221,76 @@ async def update_timeline(
     return await get_tour(tour_id, db)
 
 
+async def _resolve_reference_location(tour: Tour, events: list[TimelineEventSchema]) -> tuple[float, float, str] | None:
+    """1 toạ độ ĐẠI DIỆN cho cả tour, dùng chung cho MỌI ngày — thay vì
+    geocode riêng từng địa điểm cụ thể trong lịch trình (thường là tên nhà
+    hàng/khách sạn/quán ăn không phải địa danh nên Open-Meteo không tìm ra),
+    khiến nhiều ngày không có card thời tiết. Thử tên tour trước (thường
+    chứa tên điểm đến, vd "Lịch Trình Đà Lạt" -> "Đà Lạt"), rồi lần lượt từng
+    địa điểm trong timeline tới khi geocode được — chỉ cần 1 nơi geocode
+    được là mọi ngày đều có thời tiết."""
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for c in [tour.name] + [e.location for e in events if e.location]:
+        if c not in seen:
+            seen.add(c)
+            candidates.append(c)
+
+    # Gọi geocode cho MỌI candidate SONG SONG rồi chọn kết quả đầu tiên khớp
+    # đúng thứ tự ưu tiên — tránh dò tuần tự (chậm thấy rõ: mỗi lần thử thất
+    # bại vẫn tốn round-trip network thật, dò tuần tự qua hàng chục địa điểm
+    # trước khi tìm được 1 cái đúng có thể mất cả phút; song song thì tổng
+    # thời gian chỉ bằng đúng 1 lần gọi chậm nhất, không cộng dồn).
+    results = await asyncio.gather(*(weather_service.geocode(c) for c in candidates))
+    for result in results:
+        if result is not None:
+            return result
+    return None
+
+
 async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
-    """Dự báo thời tiết thật (Open-Meteo) cho từng (ngày, địa điểm) có trong
-    timeline — dùng chung cho GET /tours/{id}/weather (trang duyệt lịch
-    trình, cần X-API-Key) VÀ GET /public/tours/{id} (trang công khai, không
-    cần key — xem app/api/v1/public.py). Trả rỗng (KHÔNG lỗi) nếu tour chưa
-    có start_date hoặc chưa có timeline — chưa đủ thông tin để tính ngày cụ
-    thể cho từng mốc. `tour` phải đã load sẵn `.timeline` (selectinload)."""
+    """Thời tiết cho MỌI ngày trong timeline — dùng chung cho
+    GET /tours/{id}/weather (trang duyệt lịch trình, cần X-API-Key) VÀ
+    GET /public/tours/{id} (trang công khai, không cần key — xem
+    app/api/v1/public.py). Trả rỗng (KHÔNG lỗi) nếu tour chưa có start_date,
+    chưa có timeline, hoặc không geocode được bất kỳ địa điểm nào trong cả
+    tour. `tour` phải đã load sẵn `.timeline` (selectinload)."""
     if not tour.start_date or tour.timeline is None:
         return []
 
     events = [TimelineEventSchema(**e) for e in tour.timeline.events]
-    # (day_index, location) duy nhất -> event_date — nhiều event cùng ngày +
-    # địa điểm chỉ cần gọi Open-Meteo 1 lần.
-    unique_keys: dict[tuple[int, str], str] = {}
-    for event in events:
-        if not event.location:
-            continue
-        key = (event.day_index, event.location)
-        if key not in unique_keys:
-            event_date = tour.start_date + timedelta(days=event.day_index - 1)
-            unique_keys[key] = event_date.isoformat()
+    day_indexes = sorted({e.day_index for e in events})
+    if not day_indexes:
+        return []
 
-    async def _fetch_one(key: tuple[int, str], date_str: str) -> EventWeather | None:
-        day_index, location = key
-        coords = await weather_service.geocode(location)
-        if coords is None:
-            return None
+    reference = await _resolve_reference_location(tour, events)
+    if reference is None:
+        return []
+    latitude, longitude, display_name = reference
 
-        forecast = await weather_service.get_forecast(coords[0], coords[1], date_str)
+    async def _fetch_day(day_index: int) -> EventWeather | None:
+        event_date = tour.start_date + timedelta(days=day_index - 1)
+        date_str = event_date.isoformat()
+
+        forecast = await weather_service.get_forecast(latitude, longitude, date_str)
         if forecast is not None:
-            return EventWeather(day_index=day_index, location=location, date=date_str, is_forecast=True, **forecast)
+            return EventWeather(
+                day_index=day_index, location=display_name, date=date_str, is_forecast=True, **forecast
+            )
 
         # Ngoài phạm vi dự báo thật (~16 ngày tới) — fallback sang trung bình
-        # nhiều năm (dữ liệu khí hậu thực đo quá khứ), is_forecast=False để
-        # FE hiển thị khác rõ, không lẫn với dự báo chính xác.
-        event_date = date.fromisoformat(date_str)
-        climate = await weather_service.get_climate_average(coords[0], coords[1], event_date.month, event_date.day)
+        # nhiều năm (dữ liệu khí hậu thực đo quá khứ). is_forecast=False vẫn
+        # được lưu ở tầng API cho mục đích nội bộ/tương lai, nhưng FE hiện
+        # tại KHÔNG hiển thị khác biệt kỹ thuật này ra ngoài (xem
+        # frontend/src/app/t/[id]/page.tsx) — người dùng cuối chỉ cần biết
+        # đây là thông tin tham khảo chung.
+        climate = await weather_service.get_climate_average(latitude, longitude, event_date.month, event_date.day)
         if climate is None:
             return None
-        return EventWeather(day_index=day_index, location=location, date=date_str, is_forecast=False, **climate)
+        return EventWeather(day_index=day_index, location=display_name, date=date_str, is_forecast=False, **climate)
 
-    # Gọi song song cho mọi (ngày, địa điểm) thay vì tuần tự — trang không
-    # phải chờ N x 2 request nối tiếp nhau.
-    fetched = await asyncio.gather(*(_fetch_one(k, d) for k, d in unique_keys.items()))
+    # Gọi song song cho mọi ngày thay vì tuần tự.
+    fetched = await asyncio.gather(*(_fetch_day(d) for d in day_indexes))
     return [w for w in fetched if w is not None]
 
 

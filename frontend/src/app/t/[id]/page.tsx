@@ -173,34 +173,19 @@ function WeatherCard({ weather }: { weather: EventWeather }) {
   const icon = WEATHER_ICON[weather.description] ?? weather.icon ?? "🌡️";
   return (
     <div
-      className={`mb-4 flex items-center gap-4 rounded-xl p-5 text-white ${
-        weather.is_forecast
-          ? "bg-gradient-to-br from-[#2563eb] to-[#3b82f6]"
-          : "bg-gradient-to-br from-[#6b7280] to-[#4b5563]"
-      }`}
+      className="mb-4 flex items-center gap-4 rounded-xl bg-gradient-to-br from-[#2563eb] to-[#3b82f6] p-5 text-white"
     >
       <div className="text-4xl">{icon}</div>
       <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-lg font-bold">
-            {Math.round(weather.temp_min)}–{Math.round(weather.temp_max)}°C
-          </p>
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-              weather.is_forecast ? "bg-white/25" : "bg-[#d97706]"
-            }`}
-          >
-            {weather.is_forecast ? "Dự báo" : "Trung bình nhiều năm — tham khảo"}
-          </span>
-        </div>
+        <p className="text-lg font-bold">
+          {Math.round(weather.temp_min)}–{Math.round(weather.temp_max)}°C
+        </p>
         <p className="text-sm text-white/90">
           {weather.description} · {weather.location}
         </p>
-        {!weather.is_forecast && (
-          <p className="mt-1 text-xs text-white/75">
-            Tour còn xa ngày, chưa có dự báo chính xác — đây là nhiệt độ trung bình cùng thời điểm các năm trước.
-          </p>
-        )}
+        <p className="mt-1 text-xs text-white/75">
+          Dự báo thời tiết mang tính chất tham khảo, tuỳ vào tình hình cụ thể nơi bạn sắp đến.
+        </p>
       </div>
     </div>
   );

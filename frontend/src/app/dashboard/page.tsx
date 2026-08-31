@@ -8,6 +8,7 @@ import Link from "next/link";
 import { api, DashboardSummary, ZaloLoginStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
+import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
 import { parseApiDate } from "@/lib/utils";
 
 function timeAgo(iso: string): string {
@@ -95,6 +96,7 @@ export default function DashboardPage() {
           <Link href={`/tours/${tour.id}/dispatch`}>
             <Button className="w-full">Gửi thông báo nhanh</Button>
           </Link>
+          <CopyPublicLinkButton tourId={tour.id} />
 
           <div>
             <p className="mb-2 text-sm font-semibold">Thao tác nhanh</p>

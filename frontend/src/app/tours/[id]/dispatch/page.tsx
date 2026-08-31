@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, Guest, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { RsvpGuestList } from "@/components/rsvp-guest-list";
 import { ZaloGroupCard } from "@/components/zalo-group-card";
+import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
 import { ZaloPreview } from "@/components/zalo-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,6 +154,15 @@ export default function DispatchTourPage() {
         <Button disabled={dispatching || !isLoggedIn || !guests?.length} onClick={() => handleDispatch()}>
           {dispatching ? "Đang gửi..." : "▶ Gửi thông báo toàn đoàn"}
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-semibold">Lịch trình công khai</p>
+        <p className="text-xs text-muted-foreground">
+          Không cần đăng nhập gì — gửi link này qua bất kỳ kênh nào (SMS, email, in QR...) để khách tự xem lịch
+          trình chung. Không hiển thị danh sách khách/số ghế/phòng riêng.
+        </p>
+        {tour && <CopyPublicLinkButton tourId={tour.id} />}
       </div>
 
       <ZaloGroupCard

@@ -221,13 +221,13 @@ async def update_timeline(
     return await get_tour(tour_id, db)
 
 
-@router.get("/{tour_id}/weather", response_model=list[EventWeather])
-async def get_tour_weather(tour_id: str, db: AsyncSession = Depends(get_db)) -> list[EventWeather]:
+async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
     """Dự báo thời tiết thật (Open-Meteo) cho từng (ngày, địa điểm) có trong
-    timeline — dùng hiển thị inline trên trang duyệt lịch trình. Trả rỗng
-    (KHÔNG lỗi) nếu tour chưa có start_date hoặc chưa có timeline — chưa đủ
-    thông tin để tính ngày cụ thể cho từng mốc."""
-    tour = await _get_tour_or_404(tour_id, db)
+    timeline — dùng chung cho GET /tours/{id}/weather (trang duyệt lịch
+    trình, cần X-API-Key) VÀ GET /public/tours/{id} (trang công khai, không
+    cần key — xem app/api/v1/public.py). Trả rỗng (KHÔNG lỗi) nếu tour chưa
+    có start_date hoặc chưa có timeline — chưa đủ thông tin để tính ngày cụ
+    thể cho từng mốc. `tour` phải đã load sẵn `.timeline` (selectinload)."""
     if not tour.start_date or tour.timeline is None:
         return []
 
@@ -257,6 +257,12 @@ async def get_tour_weather(tour_id: str, db: AsyncSession = Depends(get_db)) -> 
     # phải chờ N x 2 request nối tiếp nhau.
     fetched = await asyncio.gather(*(_fetch_one(k, d) for k, d in unique_keys.items()))
     return [w for w in fetched if w is not None]
+
+
+@router.get("/{tour_id}/weather", response_model=list[EventWeather])
+async def get_tour_weather(tour_id: str, db: AsyncSession = Depends(get_db)) -> list[EventWeather]:
+    tour = await _get_tour_or_404(tour_id, db)
+    return await compute_tour_weather(tour)
 
 
 @router.post("/{tour_id}/guests", response_model=GuestOut)

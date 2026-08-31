@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
+from app.api.v1.public import router as public_router
 from app.core.config import get_settings
 from app.core.llm import log_llm_provider_status
 
@@ -55,3 +56,9 @@ async def health() -> dict:
 
 
 app.include_router(api_router)
+
+# public_router KHÔNG mount qua api_router — cố tình đứng ngoài dependency
+# require_api_key (mọi router khác trong api/v1 đều bắt buộc X-API-Key, xem
+# app/api/v1/__init__.py). Đây là lối đi công khai DUY NHẤT của toàn bộ
+# backend, xem cảnh báo bảo mật ở đầu app/api/v1/public.py.
+app.include_router(public_router, prefix="/api/v1")

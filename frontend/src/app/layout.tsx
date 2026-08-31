@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
-import { LlmProviderBanner } from "@/components/llm-provider-banner";
 import { AppChrome } from "@/components/app-chrome";
 import "./globals.css";
 
@@ -21,7 +20,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi" className={beVietnamPro.variable}>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <LlmProviderBanner />
         <AppChrome>{children}</AppChrome>
       </body>
     </html>

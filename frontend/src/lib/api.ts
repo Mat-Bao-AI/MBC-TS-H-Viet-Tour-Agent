@@ -83,6 +83,16 @@ export type EventWeather = {
   icon: string;
 };
 
+export type PublicTourView = {
+  id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  ready: boolean;
+  timeline_events: TimelineEvent[];
+  weather: EventWeather[];
+};
+
 export type HealthStatus = {
   status: string;
   environment: string;
@@ -116,6 +126,18 @@ export const api = {
   getHealth: async (): Promise<HealthStatus> => {
     const res = await fetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error(`API /health lỗi ${res.status}`);
+    return res.json();
+  },
+
+  // Trang lịch trình công khai (/t/[id]) — endpoint này KHÔNG cần X-API-Key
+  // (xem backend app/api/v1/public.py), nên gọi thẳng fetch, không qua
+  // request() (vốn luôn đính kèm key cho các API nội bộ khác).
+  getPublicTour: async (id: string): Promise<PublicTourView> => {
+    const res = await fetch(`${V1}/public/tours/${id}`);
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("NOT_FOUND");
+      throw new Error(`API /public/tours/${id} lỗi ${res.status}`);
+    }
     return res.json();
   },
 

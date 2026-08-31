@@ -26,3 +26,18 @@ class TimelineEventIn(TimelineEventSchema):
 
 class TimelineUpdateRequest(BaseModel):
     events: list[TimelineEventIn]
+
+
+class EventWeather(BaseModel):
+    """Dự báo thời tiết thật (Open-Meteo) cho 1 (ngày, địa điểm) trong
+    timeline — trả về GET /tours/{id}/weather, ghép lại ở FE theo
+    (day_index, location). Không có bản ghi nào bịa — thiếu ngày tour hoặc
+    Open-Meteo không có dữ liệu thì đơn giản là không có trong danh sách."""
+
+    day_index: int
+    location: str
+    date: str  # YYYY-MM-DD
+    temp_min: float
+    temp_max: float
+    description: str
+    icon: str

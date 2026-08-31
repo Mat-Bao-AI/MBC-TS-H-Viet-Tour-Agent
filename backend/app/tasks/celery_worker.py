@@ -84,3 +84,39 @@ def dispatch_guest_message(guest_id: str) -> dict:
         session.commit()
 
         return {"ok": True, "guest_id": guest_id}
+
+
+@celery_app.task(
+    name="dispatch_quick_update_message",
+    rate_limit="20/m",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    max_retries=3,
+)
+def dispatch_quick_update_message(guest_id: str, message_text: str) -> dict:
+    """Gửi 1 tin tự do, tức thời cho 1 khách — dùng cho "Cập nhật nhanh" (FAB
+    timeline) và "Gửi Zalo" trên từng mốc riêng lẻ. Khác dispatch_guest_message
+    ở trên: KHÔNG dùng format_guest_message (template lịch trình đầy đủ),
+    message_text đã được soạn sẵn từ trước khi queue task."""
+    with SyncSessionLocal() as session:
+        guest = session.get(Guest, guest_id)
+        if guest is None:
+            return {"ok": False, "error": f"Không tìm thấy guest {guest_id}"}
+
+        if not guest.zalo_id:
+            if not guest.phone_number:
+                return {"ok": False, "error": f"Guest {guest_id} thiếu cả zalo_id lẫn phone_number"}
+            resolved = resolve_user_by_phone_sync(guest.phone_number)
+            if resolved is None:
+                return {"ok": False, "error": f"Không resolve được Zalo ID cho SĐT {guest.phone_number}"}
+            guest.zalo_id = resolved["zaloId"]
+            session.commit()
+
+        send_message_sync(guest.zalo_id, message_text)
+
+        guest.last_dispatched_at = datetime.utcnow()
+        if guest.dispatch_status == DispatchStatus.PENDING:
+            guest.dispatch_status = DispatchStatus.SENT
+        session.commit()
+
+        return {"ok": True, "guest_id": guest_id}

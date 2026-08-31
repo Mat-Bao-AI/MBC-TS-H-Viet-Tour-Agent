@@ -66,6 +66,16 @@ export type ZaloLoginStatus = {
   error: string | null;
 };
 
+export type EventWeather = {
+  day_index: number;
+  location: string;
+  date: string;
+  temp_min: number;
+  temp_max: number;
+  description: string;
+  icon: string;
+};
+
 export type HealthStatus = {
   status: string;
   environment: string;
@@ -170,4 +180,12 @@ export const api = {
     }),
 
   dispatchStatus: (tourId: string) => request<Guest[]>(`/zalo/tours/${tourId}/dispatch-status`),
+
+  getTourWeather: (tourId: string) => request<EventWeather[]>(`/tours/${tourId}/weather`),
+
+  quickUpdate: (tourId: string, message: string, guestIds?: string[]) =>
+    request<{ queued: number; skipped: string[] }>(`/zalo/tours/${tourId}/quick-update`, {
+      method: "POST",
+      body: JSON.stringify({ message, guest_ids: guestIds ?? null }),
+    }),
 };

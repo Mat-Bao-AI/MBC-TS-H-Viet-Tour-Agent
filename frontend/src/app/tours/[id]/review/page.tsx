@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { api, TimelineEvent, TourDetail } from "@/lib/api";
+import { api, EventWeather, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { TimelineBuilder } from "@/components/timeline-builder";
+import { TimelineView } from "@/components/timeline-view";
+import { QuickUpdateSheet } from "@/components/quick-update-sheet";
 import { GuestSelector } from "@/components/guest-selector";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,15 +18,22 @@ export default function ReviewTourPage() {
 
   const [tour, setTour] = useState<TourDetail | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [weather, setWeather] = useState<EventWeather[]>([]);
+  const [zaloStatus, setZaloStatus] = useState<ZaloLoginStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [showQuickUpdate, setShowQuickUpdate] = useState(false);
 
   async function load() {
     try {
       const data = await api.getTour(tourId);
       setTour(data);
       setEvents(data.timeline_events);
+      if (data.start_date && (data.status === "review" || data.status === "dispatched")) {
+        api.getTourWeather(tourId).then(setWeather).catch(() => {});
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -32,6 +41,7 @@ export default function ReviewTourPage() {
 
   useEffect(() => {
     load();
+    api.getZaloLoginStatus().then(setZaloStatus).catch(() => {});
     // Poll trong lúc agent đang parse — dừng poll khi đã có kết quả (review/dispatched/failed)
     const interval = setInterval(() => {
       setTour((current) => {
@@ -53,6 +63,7 @@ export default function ReviewTourPage() {
       const updated = await api.updateTimeline(tourId, events);
       setTour(updated);
       setSaveMessage("Đã lưu timeline.");
+      setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -74,9 +85,11 @@ export default function ReviewTourPage() {
   if (!tour) return <p className="text-sm text-muted-foreground">Đang tải...</p>;
 
   const isProcessing = tour.status === "draft" || tour.status === "parsing";
+  const isReadyForTimeline = tour.status === "review" || tour.status === "dispatched";
+  const zaloConnected = zaloStatus?.status === "success";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="relative flex flex-col gap-4 pb-16 pt-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{tour.name}</h1>
@@ -106,20 +119,35 @@ export default function ReviewTourPage() {
         </Card>
       )}
 
-      {(tour.status === "review" || tour.status === "dispatched") && (
+      {isReadyForTimeline && (
         <>
           <Card>
-            <CardHeader>
-              <CardTitle>Timeline</CardTitle>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle>Lịch trình</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+                {editing ? "Xong" : "✏️ Sửa"}
+              </Button>
             </CardHeader>
             <CardContent>
-              <TimelineBuilder events={events} onChange={setEvents} />
-              <div className="mt-4 flex items-center gap-3">
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving ? "Đang lưu..." : "Lưu timeline"}
-                </Button>
-                {saveMessage && <span className="text-sm text-green-700">{saveMessage}</span>}
-              </div>
+              {editing ? (
+                <>
+                  <TimelineBuilder events={events} onChange={setEvents} />
+                  <div className="mt-4 flex items-center gap-3">
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? "Đang lưu..." : "Lưu timeline"}
+                    </Button>
+                    {saveMessage && <span className="text-sm text-success">{saveMessage}</span>}
+                  </div>
+                </>
+              ) : (
+                <TimelineView
+                  tourId={tourId}
+                  startDate={tour.start_date}
+                  events={events}
+                  weather={weather}
+                  zaloConnected={zaloConnected}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -143,6 +171,24 @@ export default function ReviewTourPage() {
               </div>
             </CardContent>
           </Card>
+
+          <button
+            onClick={() => setShowQuickUpdate(true)}
+            className="fixed bottom-8 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-2xl text-secondary-foreground shadow-lg"
+            aria-label="Cập nhật nhanh"
+            title="Cập nhật nhanh"
+          >
+            ⚡
+          </button>
+
+          {showQuickUpdate && (
+            <QuickUpdateSheet
+              tourId={tourId}
+              guestCount={tour.guests.length}
+              zaloConnected={zaloConnected}
+              onClose={() => setShowQuickUpdate(false)}
+            />
+          )}
         </>
       )}
     </div>

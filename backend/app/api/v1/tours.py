@@ -1,7 +1,9 @@
 """tours.py — CRUD tour, upload tài liệu, xem/sửa timeline & khách."""
 
+import asyncio
 import tempfile
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -15,7 +17,8 @@ from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
 from app.schemas.extraction import ExtractedGuest
-from app.schemas.timeline import TimelineUpdateRequest
+from app.schemas.timeline import EventWeather, TimelineEventSchema, TimelineUpdateRequest
+from app.services import weather_service
 from app.schemas.tour import (
     GuestCreateRequest,
     GuestImportResponse,
@@ -214,6 +217,44 @@ async def update_timeline(
     await db.commit()
 
     return await get_tour(tour_id, db)
+
+
+@router.get("/{tour_id}/weather", response_model=list[EventWeather])
+async def get_tour_weather(tour_id: str, db: AsyncSession = Depends(get_db)) -> list[EventWeather]:
+    """Dự báo thời tiết thật (Open-Meteo) cho từng (ngày, địa điểm) có trong
+    timeline — dùng hiển thị inline trên trang duyệt lịch trình. Trả rỗng
+    (KHÔNG lỗi) nếu tour chưa có start_date hoặc chưa có timeline — chưa đủ
+    thông tin để tính ngày cụ thể cho từng mốc."""
+    tour = await _get_tour_or_404(tour_id, db)
+    if not tour.start_date or tour.timeline is None:
+        return []
+
+    events = [TimelineEventSchema(**e) for e in tour.timeline.events]
+    # (day_index, location) duy nhất -> event_date — nhiều event cùng ngày +
+    # địa điểm chỉ cần gọi Open-Meteo 1 lần.
+    unique_keys: dict[tuple[int, str], str] = {}
+    for event in events:
+        if not event.location:
+            continue
+        key = (event.day_index, event.location)
+        if key not in unique_keys:
+            event_date = tour.start_date + timedelta(days=event.day_index - 1)
+            unique_keys[key] = event_date.isoformat()
+
+    async def _fetch_one(key: tuple[int, str], date_str: str) -> EventWeather | None:
+        day_index, location = key
+        coords = await weather_service.geocode(location)
+        if coords is None:
+            return None
+        forecast = await weather_service.get_forecast(coords[0], coords[1], date_str)
+        if forecast is None:
+            return None
+        return EventWeather(day_index=day_index, location=location, date=date_str, **forecast)
+
+    # Gọi song song cho mọi (ngày, địa điểm) thay vì tuần tự — trang không
+    # phải chờ N x 2 request nối tiếp nhau.
+    fetched = await asyncio.gather(*(_fetch_one(k, d) for k, d in unique_keys.items()))
+    return [w for w in fetched if w is not None]
 
 
 @router.post("/{tour_id}/guests", response_model=GuestOut)

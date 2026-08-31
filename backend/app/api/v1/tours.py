@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.guest import Guest
+from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
 from app.schemas.extraction import ExtractedGuest
@@ -139,10 +139,31 @@ async def create_tour(
     return TourCreateResponse(id=tour.id, status=tour.status, message="Đã nhận tài liệu, đang phân tích...")
 
 
+def tour_to_list_item(tour: Tour) -> TourListItem:
+    """Tour ORM (đã eager-load guests) -> TourListItem kèm tiến độ gửi Zalo
+    thật, tính trực tiếp từ Guest.dispatch_status — dùng chung cho
+    GET /tours và GET /dashboard."""
+    guests_sent = sum(
+        1 for g in tour.guests if g.dispatch_status != DispatchStatus.PENDING and g.dispatch_status != DispatchStatus.FAILED
+    )
+    return TourListItem(
+        id=tour.id,
+        name=tour.name,
+        start_date=tour.start_date,
+        end_date=tour.end_date,
+        status=tour.status,
+        created_at=tour.created_at,
+        guests_total=len(tour.guests),
+        guests_sent=guests_sent,
+    )
+
+
 @router.get("", response_model=list[TourListItem])
-async def list_tours(db: AsyncSession = Depends(get_db)) -> list[Tour]:
-    result = await db.execute(select(Tour).order_by(Tour.created_at.desc()))
-    return list(result.scalars().all())
+async def list_tours(db: AsyncSession = Depends(get_db)) -> list[TourListItem]:
+    result = await db.execute(
+        select(Tour).options(selectinload(Tour.guests)).order_by(Tour.created_at.desc())
+    )
+    return [tour_to_list_item(t) for t in result.scalars().all()]
 
 
 async def _get_tour_or_404(tour_id: str, db: AsyncSession) -> Tour:

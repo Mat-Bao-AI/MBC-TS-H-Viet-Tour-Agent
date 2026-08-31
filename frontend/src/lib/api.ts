@@ -35,6 +35,19 @@ export type TourListItem = {
   end_date: string | null;
   status: TourStatus;
   created_at: string;
+  guests_total: number;
+  guests_sent: number;
+};
+
+export type DashboardActivity = {
+  type: "tour_created" | "guest_dispatched" | "tour_failed" | string;
+  text: string;
+  timestamp: string;
+};
+
+export type DashboardSummary = {
+  active_tour: TourListItem | null;
+  recent_activities: DashboardActivity[];
 };
 
 export type TourDetail = TourListItem & {
@@ -90,6 +103,8 @@ export const api = {
   },
 
   listTours: () => request<TourListItem[]>("/tours"),
+
+  getDashboard: () => request<DashboardSummary>("/dashboard"),
 
   createTour: (formData: FormData) =>
     request<{ id: string; status: TourStatus; message: string }>("/tours", {

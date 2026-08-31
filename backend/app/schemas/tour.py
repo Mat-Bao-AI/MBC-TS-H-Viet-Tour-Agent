@@ -54,6 +54,10 @@ class TourListItem(BaseModel):
     end_date: date | None
     status: TourStatus
     created_at: datetime
+    guests_total: int = 0
+    # "Đã gửi" = dispatch_status khác pending/failed (sent/read/confirmed) —
+    # tiến độ thật tính từ dữ liệu khách trong DB, không phải số bịa.
+    guests_sent: int = 0
 
 
 class TourDetail(BaseModel):

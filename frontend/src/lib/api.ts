@@ -93,6 +93,11 @@ export type PublicTourView = {
   weather: EventWeather[];
 };
 
+export type TelegramInfo = {
+  configured: boolean;
+  bot_username: string | null;
+};
+
 export type HealthStatus = {
   status: string;
   environment: string;
@@ -235,4 +240,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+
+  getTelegramInfo: () => request<TelegramInfo>("/telegram/info"),
 };

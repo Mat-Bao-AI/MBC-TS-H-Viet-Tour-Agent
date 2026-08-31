@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, Guest, TourDetail, ZaloLoginStatus } from "@/lib/api";
+import { api, Guest, TelegramInfo, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { RsvpGuestList } from "@/components/rsvp-guest-list";
 import { ZaloGroupCard } from "@/components/zalo-group-card";
 import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
@@ -16,6 +16,7 @@ export default function DispatchTourPage() {
   const tourId = params.id;
 
   const [loginStatus, setLoginStatus] = useState<ZaloLoginStatus | null>(null);
+  const [telegramInfo, setTelegramInfo] = useState<TelegramInfo | null>(null);
   const [tour, setTour] = useState<TourDetail | null>(null);
   const [guests, setGuests] = useState<Guest[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -70,6 +71,7 @@ export default function DispatchTourPage() {
     loadGuests();
     loadTour();
     api.getZaloLoginStatus().then(setLoginStatus).catch(() => {});
+    api.getTelegramInfo().then(setTelegramInfo).catch(() => setTelegramInfo({ configured: false, bot_username: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tourId]);
 
@@ -99,6 +101,11 @@ export default function DispatchTourPage() {
   }
 
   const isLoggedIn = loginStatus?.status === "success";
+  // Không còn khoá cứng theo Zalo — chỉ cần MỘT trong các kênh khả dụng
+  // (Zalo đã đăng nhập HOẶC Telegram đã cấu hình bot) là có thể bấm gửi.
+  // Backend tự bỏ qua đúng từng khách thiếu thông tin kênh đã chọn
+  // (_has_sendable_contact) — nút này chỉ chặn khi CẢ 2 kênh đều chưa sẵn sàng.
+  const anyChannelReady = isLoggedIn || !!telegramInfo?.configured;
   const pendingIds = guests?.filter((g) => g.dispatch_status === "pending").map((g) => g.id) ?? [];
 
   return (
@@ -113,7 +120,9 @@ export default function DispatchTourPage() {
           <CardHeader>
             <CardTitle>Đăng nhập Zalo cá nhân</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Cần kết nối tài khoản Zalo cá nhân trước khi gửi thông báo cho khách.
+              {telegramInfo?.configured
+                ? "Chưa kết nối Zalo — khách chọn kênh Zalo sẽ không gửi được (khách chọn Telegram vẫn gửi bình thường)."
+                : "Cần kết nối tài khoản Zalo cá nhân, hoặc cấu hình Telegram (.env), trước khi gửi thông báo cho khách."}
             </p>
           </CardHeader>
           <CardContent>
@@ -132,6 +141,7 @@ export default function DispatchTourPage() {
           onToggle={toggleGuest}
           onPreview={setPreviewGuestId}
           onGuestsChanged={loadGuests}
+          telegramInfo={telegramInfo}
         />
       )}
 
@@ -146,12 +156,12 @@ export default function DispatchTourPage() {
       <div className="flex flex-col gap-2">
         <Button
           variant="outline"
-          disabled={dispatching || !isLoggedIn || pendingIds.length === 0}
+          disabled={dispatching || !anyChannelReady || pendingIds.length === 0}
           onClick={() => handleDispatch(pendingIds)}
         >
           📩 Gửi riêng khách chưa xem ({pendingIds.length})
         </Button>
-        <Button disabled={dispatching || !isLoggedIn || !guests?.length} onClick={() => handleDispatch()}>
+        <Button disabled={dispatching || !anyChannelReady || !guests?.length} onClick={() => handleDispatch()}>
           {dispatching ? "Đang gửi..." : "▶ Gửi thông báo toàn đoàn"}
         </Button>
       </div>

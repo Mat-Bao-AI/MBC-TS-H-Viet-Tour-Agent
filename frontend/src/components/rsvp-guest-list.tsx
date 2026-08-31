@@ -7,7 +7,7 @@
 // (Phase 1 chưa có webhook seen-message tự động từ Zalo — xem
 // GuestStatusUpdateRequest ở backend).
 import { useMemo, useState } from "react";
-import { api, DispatchGuestStatus, Guest } from "@/lib/api";
+import { api, DispatchGuestStatus, Guest, NotificationChannel, TelegramInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 type Tab = "all" | "sent" | "read" | "confirmed";
@@ -37,12 +37,23 @@ type Props = {
   onToggle: (guestId: string) => void;
   onPreview: (guestId: string) => void;
   onGuestsChanged: () => void;
+  // null = đang tải/chưa xác định — ẩn tuỳ chọn Telegram để tránh nháy UI.
+  telegramInfo: TelegramInfo | null;
 };
 
-export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview, onGuestsChanged }: Props) {
+export function RsvpGuestList({
+  tourId,
+  guests,
+  selectedIds,
+  onToggle,
+  onPreview,
+  onGuestsChanged,
+  telegramInfo,
+}: Props) {
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return guests.filter((g) => {
@@ -61,6 +72,30 @@ export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function setChannel(guestId: string, notification_channel: NotificationChannel) {
+    setUpdatingId(guestId);
+    try {
+      await api.updateGuest(tourId, guestId, { notification_channel });
+      onGuestsChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function copyInviteLink(guest: Guest) {
+    if (!telegramInfo?.bot_username) return;
+    const url = `https://t.me/${telegramInfo.bot_username}?start=${guest.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInviteId(guest.id);
+      setTimeout(() => setCopiedInviteId(null), 2000);
+    } catch {
+      prompt("Sao chép link mời Telegram — gửi cho khách qua SMS/kênh khác:", url);
     }
   }
 
@@ -103,14 +138,7 @@ export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview
                 👤
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate font-medium">{guest.full_name}</p>
-                  {guest.zalo_id && (
-                    <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                      ZALO
-                    </span>
-                  )}
-                </div>
+                <p className="truncate font-medium">{guest.full_name}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {guest.seat_number && `Ghế ${guest.seat_number}`}
                   {guest.seat_number && guest.room_number && " · "}
@@ -120,6 +148,30 @@ export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview
               </div>
               <StatusChip status={guest.dispatch_status} />
             </div>
+
+            <div className="flex items-center gap-2 pl-16">
+              <ChannelToggle
+                value={guest.notification_channel}
+                disabled={updatingId === guest.id}
+                telegramAvailable={!!telegramInfo?.configured}
+                onChange={(ch) => setChannel(guest.id, ch)}
+              />
+              {guest.notification_channel === "telegram" &&
+                (guest.telegram_chat_id ? (
+                  <span className="text-[11px] text-success">✓ Đã kết nối</span>
+                ) : telegramInfo?.configured ? (
+                  <button
+                    type="button"
+                    className="text-[11px] text-primary hover:underline"
+                    onClick={() => copyInviteLink(guest)}
+                  >
+                    {copiedInviteId === guest.id ? "✓ Đã sao chép" : "Sao chép link mời"}
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Chưa cấu hình Bot</span>
+                ))}
+            </div>
+
             {guest.dispatch_status === "failed" && guest.dispatch_error && (
               <p className="pl-16 text-[11px] text-destructive">⚠️ {guest.dispatch_error}</p>
             )}
@@ -158,6 +210,40 @@ export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview
           <p className="py-6 text-center text-sm text-muted-foreground">Không có khách nào khớp.</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChannelToggle({
+  value,
+  disabled,
+  telegramAvailable,
+  onChange,
+}: {
+  value: NotificationChannel;
+  disabled: boolean;
+  telegramAvailable: boolean;
+  onChange: (channel: NotificationChannel) => void;
+}) {
+  const options: { key: NotificationChannel; label: string }[] = [
+    { key: "zalo", label: "Zalo" },
+    { key: "telegram", label: telegramAvailable ? "Telegram" : "Telegram ⚠" },
+  ];
+  return (
+    <div className="inline-flex rounded-full border border-border p-0.5 text-[11px]">
+      {options.map((opt) => (
+        <button
+          key={opt.key}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(opt.key)}
+          className={`rounded-full px-2.5 py-1 font-medium transition-colors disabled:opacity-50 ${
+            value === opt.key ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }

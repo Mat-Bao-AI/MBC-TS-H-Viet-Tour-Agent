@@ -51,6 +51,13 @@ async def get_login_status() -> dict:
         return response.json()
 
 
+async def logout_zalo() -> dict:
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(_bridge_url("/login/logout"), headers=_bridge_headers())
+        _raise_for_bridge_error(response)
+        return response.json()
+
+
 async def resolve_user_by_phone(phone_number: str) -> dict | None:
     """Trả về {"zaloId": ..., "displayName": ...} hoặc None nếu không tìm thấy."""
     async with httpx.AsyncClient(timeout=15) as client:

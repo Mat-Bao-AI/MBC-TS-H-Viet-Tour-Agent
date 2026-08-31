@@ -2,20 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens rút từ Google Stitch (docs/STITCH-DESIGN.md) — không tự chế
+   thêm màu ngoài bảng này, đổi màu thì đổi từ nguồn Stitch trước. */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --primary: 221 83% 53%;
+  --background: 252 71% 99%;   /* #faf9fe */
+  --foreground: 228 9% 11%;    /* #1a1b1f */
+  --primary: 212 100% 37%;     /* #0058bc — Travel Blue */
   --primary-foreground: 0 0% 100%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --destructive: 0 72% 51%;
+  --secondary: 35 100% 50%;    /* #fe9400 — Sun Orange (FAB, cảnh báo) */
+  --secondary-foreground: 33 100% 19%;
+  --success: 142 100% 21%;     /* #006b27 — Leaf Green (đã xác nhận) */
+  --success-foreground: 0 0% 100%;
+  --muted: 250 20% 94%;        /* #eeedf3 */
+  --muted-foreground: 222 13% 29%; /* #414755 */
+  --destructive: 0 75% 42%;    /* #ba1a1a */
   --destructive-foreground: 0 0% 100%;
-  --border: 214 32% 91%;
-  --radius: 0.5rem;
+  --border: 226 22% 80%;       /* #c1c6d7 */
+  --card: 0 0% 100%;
+  --radius: 0.5rem;            /* 8px — rounded chuẩn Stitch */
 }
 
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-be-vietnam-pro), system-ui, sans-serif;
 }

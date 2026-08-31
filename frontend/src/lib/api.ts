@@ -141,6 +141,8 @@ export const api = {
 
   getZaloLoginStatus: () => request<ZaloLoginStatus>("/auth/zalo/login/status"),
 
+  logoutZalo: () => request<ZaloLoginStatus>("/auth/zalo/logout", { method: "POST" }),
+
   previewMessage: (tourId: string, guestId: string) =>
     request<{ guest_id: string; guest_name: string; message_text: string }>(
       `/zalo/tours/${tourId}/preview/${guestId}`

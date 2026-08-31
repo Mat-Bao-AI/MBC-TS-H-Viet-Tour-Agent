@@ -7,7 +7,7 @@ workspace = 1 HDV) — đây là "đăng nhập" tài khoản Zalo dùng để g
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.zalo import ZaloLoginStatus
-from app.services.zalo_service import ZaloServiceError, get_login_status, start_qr_login
+from app.services.zalo_service import ZaloServiceError, get_login_status, logout_zalo, start_qr_login
 
 router = APIRouter(prefix="/auth/zalo", tags=["auth"])
 
@@ -34,6 +34,23 @@ async def login_status() -> ZaloLoginStatus:
         raise HTTPException(status_code=502, detail=f"zalo_bridge lỗi: {exc}") from exc
     return ZaloLoginStatus(
         status=data.get("status", "error"),
+        qr_data_url=data.get("qrDataUrl"),
+        display_name=data.get("displayName"),
+        error=data.get("error"),
+    )
+
+
+@router.post("/logout", response_model=ZaloLoginStatus)
+async def logout() -> ZaloLoginStatus:
+    """Ngắt kết nối Zalo cá nhân — dùng cho nút "Ngắt kết nối"/"Đăng xuất" ở
+    Settings. Đây là "session" thật duy nhất app có ở Phase 1 (chưa có
+    user/role riêng, xem ghi chú đầu file)."""
+    try:
+        data = await logout_zalo()
+    except ZaloServiceError as exc:
+        raise HTTPException(status_code=502, detail=f"zalo_bridge lỗi: {exc}") from exc
+    return ZaloLoginStatus(
+        status=data.get("status", "idle"),
         qr_data_url=data.get("qrDataUrl"),
         display_name=data.get("displayName"),
         error=data.get("error"),

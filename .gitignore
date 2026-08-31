@@ -13,6 +13,7 @@ venv/
 node_modules/
 .next/
 out/
+*.tsbuildinfo
 
 # Zalo session (local login state — never commit)
 zalo-bridge/storage/*
@@ -26,3 +27,6 @@ backend/storage/uploads/
 
 # OS
 .DS_Store
+
+# MCP credentials (secret key — never commit, đã import vào ~/.claude.json user scope)
+mcp_ggstitch.txt

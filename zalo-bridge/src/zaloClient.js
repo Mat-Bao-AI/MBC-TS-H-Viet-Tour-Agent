@@ -127,6 +127,22 @@ export function getStatus() {
   };
 }
 
+/**
+ * Ngắt kết nối tài khoản Zalo đang đăng nhập (dùng cho nút "Ngắt kết nối" /
+ * "Đăng xuất" ở Settings). Best-effort dừng listener rồi reset state về
+ * "idle" — KHÔNG xoá storage/session.json (chỉ tham khảo, xem ghi chú đầu
+ * file), lần đăng nhập tiếp theo vẫn phải quét QR mới như bình thường.
+ */
+export function logout() {
+  try {
+    state.api?.listener?.stop?.();
+  } catch (err) {
+    console.error("[zalo-bridge] Lỗi khi dừng listener lúc logout (không chặn logout):", err);
+  }
+  state = { status: "idle", qrDataUrl: null, displayName: null, error: null, api: null };
+  return getStatus();
+}
+
 function requireLoggedIn() {
   if (state.status !== "success" || !state.api) {
     const err = new Error("Chưa đăng nhập Zalo — gọi POST /login/qr/start và quét QR trước.");

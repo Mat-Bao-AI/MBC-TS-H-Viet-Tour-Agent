@@ -1,5 +1,5 @@
 import express from "express";
-import { startQrLogin, getStatus, findUserByPhone, sendTextMessage } from "./zaloClient.js";
+import { startQrLogin, getStatus, logout, findUserByPhone, sendTextMessage } from "./zaloClient.js";
 
 const app = express();
 app.use(express.json());
@@ -31,6 +31,10 @@ app.post("/login/qr/start", (_req, res) => {
 
 app.get("/login/status", (_req, res) => {
   res.json(getStatus());
+});
+
+app.post("/login/logout", (_req, res) => {
+  res.json(logout());
 });
 
 app.get("/users/resolve", async (req, res) => {

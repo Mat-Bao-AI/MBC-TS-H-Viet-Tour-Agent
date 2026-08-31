@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Image from "next/image";
+import Link from "next/link";
 import { api, Guest, ZaloLoginStatus } from "@/lib/api";
 import { GuestSelector } from "@/components/guest-selector";
 import { ZaloPreview } from "@/components/zalo-preview";
@@ -20,7 +20,6 @@ export default function DispatchTourPage() {
   const [dispatching, setDispatching] = useState(false);
   const [result, setResult] = useState<{ queued: number; skipped: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function loadGuests() {
     try {
@@ -30,37 +29,11 @@ export default function DispatchTourPage() {
     }
   }
 
-  async function refreshLoginStatus() {
-    const status = await api.getZaloLoginStatus();
-    setLoginStatus(status);
-    return status;
-  }
-
   useEffect(() => {
     loadGuests();
-    refreshLoginStatus().catch(() => {});
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    api.getZaloLoginStatus().then(setLoginStatus).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tourId]);
-
-  async function handleStartLogin() {
-    setError(null);
-    try {
-      const status = await api.startZaloLogin();
-      setLoginStatus(status);
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        const s = await refreshLoginStatus();
-        if (s.status === "success" || s.status === "error") {
-          if (pollRef.current) clearInterval(pollRef.current);
-        }
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
 
   function toggleGuest(id: string) {
     setSelectedIds((prev) => {
@@ -102,28 +75,13 @@ export default function DispatchTourPage() {
           <CardHeader>
             <CardTitle>Đăng nhập Zalo cá nhân</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Quét mã QR bằng app Zalo trên điện thoại để kết nối tài khoản dùng gửi tin.
+              Cần kết nối tài khoản Zalo cá nhân trước khi gửi thông báo cho khách.
             </p>
           </CardHeader>
-          <CardContent className="flex flex-col items-center gap-3">
-            {loginStatus?.status === "qr_pending" && loginStatus.qr_data_url && (
-              <Image
-                src={loginStatus.qr_data_url}
-                alt="Mã QR đăng nhập Zalo"
-                width={220}
-                height={220}
-                unoptimized
-              />
-            )}
-            {loginStatus?.status === "qr_scanned" && (
-              <p className="text-sm text-amber-700">Đã quét — vui lòng xác nhận đăng nhập trên điện thoại...</p>
-            )}
-            {loginStatus?.status === "error" && (
-              <p className="text-sm text-destructive">{loginStatus.error}</p>
-            )}
-            <Button onClick={handleStartLogin} disabled={loginStatus?.status === "qr_pending"}>
-              {loginStatus?.status === "qr_pending" ? "Đang chờ quét..." : "Bắt đầu đăng nhập"}
-            </Button>
+          <CardContent>
+            <Link href={`/login?next=/tours/${tourId}/dispatch`}>
+              <Button>Kết nối Zalo qua QR</Button>
+            </Link>
           </CardContent>
         </Card>
       )}

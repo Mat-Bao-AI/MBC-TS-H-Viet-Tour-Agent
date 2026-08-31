@@ -1,5 +1,12 @@
 import express from "express";
-import { startQrLogin, getStatus, logout, findUserByPhone, sendTextMessage } from "./zaloClient.js";
+import {
+  startQrLogin,
+  getStatus,
+  logout,
+  findUserByPhone,
+  sendTextMessage,
+  createZaloGroup,
+} from "./zaloClient.js";
 
 const app = express();
 app.use(express.json());
@@ -54,13 +61,26 @@ app.get("/users/resolve", async (req, res) => {
 });
 
 app.post("/messages/send", async (req, res) => {
-  const { zaloId, text } = req.body || {};
+  const { zaloId, text, isGroup } = req.body || {};
   if (!zaloId || !text) {
     return res.status(400).json({ error: "Thiếu 'zaloId' hoặc 'text' trong body" });
   }
   try {
-    await sendTextMessage(zaloId, text);
+    await sendTextMessage(zaloId, text, !!isGroup);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message || String(err) });
+  }
+});
+
+app.post("/groups", async (req, res) => {
+  const { name, memberZaloIds } = req.body || {};
+  if (!Array.isArray(memberZaloIds) || memberZaloIds.length === 0) {
+    return res.status(400).json({ error: "Thiếu 'memberZaloIds' (mảng zaloId, ít nhất 1 người)" });
+  }
+  try {
+    const result = await createZaloGroup(name, memberZaloIds);
+    res.json(result);
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message || String(err) });
   }

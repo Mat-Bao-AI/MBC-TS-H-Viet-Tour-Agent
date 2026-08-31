@@ -157,7 +157,18 @@ export async function findUserByPhone(phoneNumber) {
   return api.findUser(phoneNumber);
 }
 
-export async function sendTextMessage(zaloId, text) {
+export async function sendTextMessage(zaloId, text, isGroup = false) {
   const api = requireLoggedIn();
-  return api.sendMessage({ msg: text }, zaloId, ThreadType.User);
+  return api.sendMessage({ msg: text }, zaloId, isGroup ? ThreadType.Group : ThreadType.User);
+}
+
+/**
+ * Tạo 1 nhóm Zalo thật cho tour (dùng gửi thông báo chung 1 lần thay vì N
+ * tin 1-1) — dùng API createGroup thật của zca-js@2.1.2 (xem
+ * node_modules/zca-js/dist/apis/createGroup.d.ts). name/members do backend
+ * Python truyền lên (members = mảng zaloId đã resolve).
+ */
+export async function createZaloGroup(name, memberZaloIds) {
+  const api = requireLoggedIn();
+  return api.createGroup({ name, members: memberZaloIds });
 }

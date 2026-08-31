@@ -23,6 +23,7 @@ from app.schemas.tour import (
     GuestCreateRequest,
     GuestImportResponse,
     GuestOut,
+    GuestStatusUpdateRequest,
     GuestUpdateRequest,
     TourCreateResponse,
     TourDetail,
@@ -197,6 +198,7 @@ async def get_tour(tour_id: str, db: AsyncSession = Depends(get_db)) -> TourDeta
         timeline_events=(tour.timeline.events if tour.timeline else []),
         created_at=tour.created_at,
         updated_at=tour.updated_at,
+        zalo_group_id=tour.zalo_group_id,
     )
 
 
@@ -338,6 +340,24 @@ async def update_guest(
     for field, value in update_data.items():
         setattr(guest, field, value)
 
+    await db.commit()
+    await db.refresh(guest)
+    return guest
+
+
+@router.patch("/{tour_id}/guests/{guest_id}/status", response_model=GuestOut)
+async def update_guest_status(
+    tour_id: str, guest_id: str, payload: GuestStatusUpdateRequest, db: AsyncSession = Depends(get_db)
+) -> Guest:
+    """HDV tự đánh dấu RSVP (Đã xem/Đã xác nhận) sau khi liên hệ khách ngoài
+    app — xem docstring GuestStatusUpdateRequest. Tách khỏi PUT update_guest
+    ở trên để không lẫn với sửa thông tin cá nhân khách."""
+    result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
+    guest = result.scalar_one_or_none()
+    if guest is None:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy khách {guest_id} trong tour {tour_id}")
+
+    guest.dispatch_status = payload.dispatch_status
     await db.commit()
     await db.refresh(guest)
     return guest

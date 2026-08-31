@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, Guest, ZaloLoginStatus } from "@/lib/api";
-import { GuestSelector } from "@/components/guest-selector";
+import { api, Guest, TourDetail, ZaloLoginStatus } from "@/lib/api";
+import { RsvpGuestList } from "@/components/rsvp-guest-list";
+import { ZaloGroupCard } from "@/components/zalo-group-card";
 import { ZaloPreview } from "@/components/zalo-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export default function DispatchTourPage() {
   const tourId = params.id;
 
   const [loginStatus, setLoginStatus] = useState<ZaloLoginStatus | null>(null);
+  const [tour, setTour] = useState<TourDetail | null>(null);
   const [guests, setGuests] = useState<Guest[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewGuestId, setPreviewGuestId] = useState<string | null>(null);
@@ -29,8 +31,17 @@ export default function DispatchTourPage() {
     }
   }
 
+  async function loadTour() {
+    try {
+      setTour(await api.getTour(tourId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   useEffect(() => {
     loadGuests();
+    loadTour();
     api.getZaloLoginStatus().then(setLoginStatus).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tourId]);
@@ -44,17 +55,12 @@ export default function DispatchTourPage() {
     });
   }
 
-  function toggleAll() {
-    if (!guests) return;
-    setSelectedIds((prev) => (prev.size === guests.length ? new Set() : new Set(guests.map((g) => g.id))));
-  }
-
-  async function handleDispatch() {
+  async function handleDispatch(guestIds?: string[]) {
     setDispatching(true);
     setError(null);
     setResult(null);
     try {
-      const res = await api.dispatch(tourId, selectedIds.size ? Array.from(selectedIds) : undefined);
+      const res = await api.dispatch(tourId, guestIds);
       setResult(res);
       await loadGuests();
     } catch (err) {
@@ -65,10 +71,14 @@ export default function DispatchTourPage() {
   }
 
   const isLoggedIn = loginStatus?.status === "success";
+  const pendingIds = guests?.filter((g) => g.dispatch_status === "pending").map((g) => g.id) ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Gửi thông báo Zalo</h1>
+    <div className="flex flex-col gap-4 pt-2">
+      <div>
+        <h1 className="text-xl font-bold">Đoàn khách: {tour?.name ?? "..."}</h1>
+        <p className="text-sm text-muted-foreground">Tổng cộng: {guests?.length ?? 0} khách</p>
+      </div>
 
       {!isLoggedIn && (
         <Card>
@@ -86,41 +96,44 @@ export default function DispatchTourPage() {
         </Card>
       )}
 
-      {isLoggedIn && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Chọn khách để gửi</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Không chọn khách nào = gửi cho toàn bộ đoàn.
-            </p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {guests && (
-              <GuestSelector
-                tourId={tourId}
-                guests={guests}
-                selectedIds={selectedIds}
-                onToggle={toggleGuest}
-                onToggleAll={toggleAll}
-                onPreview={setPreviewGuestId}
-                onGuestsChanged={loadGuests}
-              />
-            )}
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {result && (
-              <p className="text-sm text-green-700">
-                Đã xếp hàng gửi {result.queued} tin.
-                {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu SĐT/Zalo ID.`}
-              </p>
-            )}
-
-            <Button onClick={handleDispatch} disabled={dispatching} className="self-start">
-              {dispatching ? "Đang gửi..." : "Gửi Zalo"}
-            </Button>
-          </CardContent>
-        </Card>
+      {guests && (
+        <RsvpGuestList
+          tourId={tourId}
+          guests={guests}
+          selectedIds={selectedIds}
+          onToggle={toggleGuest}
+          onPreview={setPreviewGuestId}
+          onGuestsChanged={loadGuests}
+        />
       )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {result && (
+        <p className="text-sm text-success">
+          Đã xếp hàng gửi {result.queued} tin.
+          {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu SĐT/Zalo ID.`}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="outline"
+          disabled={dispatching || !isLoggedIn || pendingIds.length === 0}
+          onClick={() => handleDispatch(pendingIds)}
+        >
+          📩 Gửi riêng khách chưa xem ({pendingIds.length})
+        </Button>
+        <Button disabled={dispatching || !isLoggedIn || !guests?.length} onClick={() => handleDispatch()}>
+          {dispatching ? "Đang gửi..." : "▶ Gửi thông báo toàn đoàn"}
+        </Button>
+      </div>
+
+      <ZaloGroupCard
+        tourId={tourId}
+        groupId={tour?.zalo_group_id ?? null}
+        zaloConnected={isLoggedIn}
+        onGroupCreated={loadTour}
+      />
 
       {previewGuestId && (
         <ZaloPreview tourId={tourId} guestId={previewGuestId} onClose={() => setPreviewGuestId(null)} />

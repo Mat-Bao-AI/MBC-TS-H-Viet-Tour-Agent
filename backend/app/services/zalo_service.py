@@ -58,6 +58,29 @@ async def logout_zalo() -> dict:
         return response.json()
 
 
+async def send_group_message(group_id: str, text: str) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.post(
+            _bridge_url("/messages/send"),
+            json={"zaloId": group_id, "text": text, "isGroup": True},
+            headers=_bridge_headers(),
+        )
+        _raise_for_bridge_error(response)
+
+
+async def create_group(name: str, member_zalo_ids: list[str]) -> dict:
+    """Tạo 1 nhóm Zalo thật (zca-js createGroup) — trả về
+    {groupId, sucessMembers, errorMembers, ...} nguyên văn từ zca-js."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            _bridge_url("/groups"),
+            json={"name": name, "memberZaloIds": member_zalo_ids},
+            headers=_bridge_headers(),
+        )
+        _raise_for_bridge_error(response)
+        return response.json()
+
+
 async def resolve_user_by_phone(phone_number: str) -> dict | None:
     """Trả về {"zaloId": ..., "displayName": ...} hoặc None nếu không tìm thấy."""
     async with httpx.AsyncClient(timeout=15) as client:

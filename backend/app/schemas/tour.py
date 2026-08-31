@@ -23,6 +23,15 @@ class GuestOut(BaseModel):
     last_dispatched_at: datetime | None
 
 
+class GuestStatusUpdateRequest(BaseModel):
+    """HDV tự đánh dấu trạng thái RSVP (Đã xem/Đã xác nhận) sau khi liên hệ
+    khách ngoài app (gọi điện, nhắn tay) — Phase 1 chưa có webhook seen-message
+    tự động từ Zalo, nên đây là cách ghi nhận thật duy nhất, không phải giả
+    lập. HDV có thể chỉnh lại nếu bấm nhầm (không giới hạn 1 chiều)."""
+
+    dispatch_status: DispatchStatus
+
+
 class GuestUpdateRequest(BaseModel):
     full_name: str | None = None
     phone_number: str | None = None
@@ -75,6 +84,7 @@ class TourDetail(BaseModel):
     timeline_events: list[TimelineEventSchema]
     created_at: datetime
     updated_at: datetime
+    zalo_group_id: str | None = None
 
 
 class TourCreateResponse(BaseModel):

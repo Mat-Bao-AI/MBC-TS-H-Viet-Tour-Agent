@@ -57,6 +57,7 @@ export type TourDetail = TourListItem & {
   guests: Guest[];
   timeline_events: TimelineEvent[];
   updated_at: string;
+  zalo_group_id: string | null;
 };
 
 export type ZaloLoginStatus = {
@@ -153,6 +154,12 @@ export const api = {
   deleteGuest: (tourId: string, guestId: string) =>
     request<void>(`/tours/${tourId}/guests/${guestId}`, { method: "DELETE" }),
 
+  updateGuestStatus: (tourId: string, guestId: string, dispatch_status: DispatchGuestStatus) =>
+    request<Guest>(`/tours/${tourId}/guests/${guestId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ dispatch_status }),
+    }),
+
   importGuestList: (tourId: string, file: File) => {
     const formData = new FormData();
     formData.append("guest_list_file", file);
@@ -187,5 +194,17 @@ export const api = {
     request<{ queued: number; skipped: string[] }>(`/zalo/tours/${tourId}/quick-update`, {
       method: "POST",
       body: JSON.stringify({ message, guest_ids: guestIds ?? null }),
+    }),
+
+  createTourGroup: (tourId: string) =>
+    request<{ group_id: string; added: number; failed: number; skipped: string[] }>(
+      `/zalo/tours/${tourId}/group/create`,
+      { method: "POST" }
+    ),
+
+  sendGroupMessage: (tourId: string, message: string) =>
+    request<{ ok: boolean }>(`/zalo/tours/${tourId}/group/send`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
     }),
 };

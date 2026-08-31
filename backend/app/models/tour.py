@@ -30,6 +30,10 @@ class Tour(Base):
     guest_list_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     guest_list_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     process_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # ID nhóm Zalo đã tạo cho tour này (qua zca-js createGroup) — null nếu
+    # HDV chưa bấm "Tạo nhóm Zalo". 1 tour chỉ tạo nhóm 1 lần, các lần gửi
+    # nhóm sau tái dùng ID này.
+    zalo_group_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[TourStatus] = mapped_column(
         Enum(TourStatus, native_enum=False, length=20), default=TourStatus.DRAFT, nullable=False
     )

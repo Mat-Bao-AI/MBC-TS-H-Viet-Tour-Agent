@@ -19,6 +19,17 @@ class DispatchResponse(BaseModel):
     skipped: list[str] = []  # guest_id không gửi được (thiếu SĐT, không resolve được zalo_id...)
 
 
+class GroupCreateResponse(BaseModel):
+    group_id: str
+    added: int  # số khách thêm được vào nhóm thành công
+    failed: int  # số khách gửi zalo_id lên nhưng zca-js báo lỗi thêm
+    skipped: list[str] = []  # guest_id không có cả zalo_id lẫn phone_number để resolve
+
+
+class GroupSendRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
 class QuickUpdateRequest(BaseModel):
     """Gửi 1 tin nhắn tự do, tức thời — dùng cho FAB "Cập nhật nhanh" (tin tự
     soạn) lẫn nút "Gửi Zalo" trên từng mốc timeline (tin ghép sẵn từ 1 event).

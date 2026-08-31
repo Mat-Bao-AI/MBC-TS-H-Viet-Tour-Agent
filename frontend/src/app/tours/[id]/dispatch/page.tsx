@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, Guest, TourDetail, ZaloLoginStatus } from "@/lib/api";
@@ -22,6 +22,32 @@ export default function DispatchTourPage() {
   const [dispatching, setDispatching] = useState(false);
   const [result, setResult] = useState<{ queued: number; skipped: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sau khi bấm gửi, "Đã xếp hàng gửi N tin" chỉ xác nhận đã QUEUE — chưa
+  // biết thật sự thành công hay lỗi (Celery task chạy nền, mất vài giây tới
+  // vài chục giây). Poll ngắn để HDV thấy đúng trạng thái cuối (sent/failed)
+  // thay vì tưởng "đã gửi" xong biến mất, khách không nhận được mà không rõ
+  // vì sao — bug thật phát hiện lúc user test.
+  function startPollingAfterDispatch() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    let ticks = 0;
+    pollRef.current = setInterval(() => {
+      ticks += 1;
+      loadGuests();
+      if (ticks >= 8 && pollRef.current) {
+        // ~20s (8 x 2.5s) đủ cho phần lớn trường hợp kể cả có retry Celery
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }, 2500);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   async function loadGuests() {
     try {
@@ -63,6 +89,7 @@ export default function DispatchTourPage() {
       const res = await api.dispatch(tourId, guestIds);
       setResult(res);
       await loadGuests();
+      startPollingAfterDispatch();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -110,7 +137,7 @@ export default function DispatchTourPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {result && (
         <p className="text-sm text-success">
-          Đã xếp hàng gửi {result.queued} tin.
+          Đã xếp hàng gửi {result.queued} tin — đang cập nhật trạng thái thật bên dưới (vài giây)...
           {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu SĐT/Zalo ID.`}
         </p>
       )}

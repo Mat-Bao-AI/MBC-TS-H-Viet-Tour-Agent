@@ -21,6 +21,7 @@ class GuestOut(BaseModel):
     dietary_note: str | None
     dispatch_status: DispatchStatus
     last_dispatched_at: datetime | None
+    dispatch_error: str | None = None
 
 
 class GuestStatusUpdateRequest(BaseModel):

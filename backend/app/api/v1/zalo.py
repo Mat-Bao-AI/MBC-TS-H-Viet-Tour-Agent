@@ -162,7 +162,20 @@ async def create_tour_group(tour_id: str, db: AsyncSession = Depends(get_db)) ->
             )
         result = await zalo_service.create_group(tour.name, member_ids)
     except ZaloServiceError as exc:
-        raise HTTPException(status_code=502, detail=f"zalo_bridge lỗi tạo nhóm: {exc}") from exc
+        detail = f"zalo_bridge lỗi tạo nhóm: {exc}"
+        # Lỗi thật gặp lúc HDV test (đã đăng nhập Zalo thật): Zalo trả "Không
+        # tìm thấy" khi tạo nhóm dù zalo_id đã resolve được — nguyên nhân
+        # THƯỜNG GẶP NHẤT (chưa xác nhận 100% vì zca-js không tài liệu hoá rõ
+        # mã lỗi): Zalo chỉ cho thêm vào nhóm mới những người ĐÃ LÀ BẠN BÈ với
+        # tài khoản đang dùng để gửi tin. Chỉ thêm gợi ý này khi KHÔNG phải lỗi
+        # "chưa đăng nhập" (lỗi đó đã tự giải thích rõ, thêm vào sẽ gây nhiễu).
+        if "chưa đăng nhập" not in str(exc).lower():
+            detail += (
+                ". Nguyên nhân thường gặp nhất: khách chưa là bạn bè Zalo với tài khoản cá nhân đang "
+                "dùng để gửi tin — Zalo yêu cầu kết bạn trước mới thêm vào nhóm được. Kiểm tra lại bằng "
+                "cách kết bạn Zalo với khách rồi thử tạo nhóm lại."
+            )
+        raise HTTPException(status_code=502, detail=detail) from exc
 
     tour.zalo_group_id = result["groupId"]
     await db.commit()

@@ -26,6 +26,7 @@ export type Guest = {
   dietary_note: string | null;
   dispatch_status: DispatchGuestStatus;
   last_dispatched_at: string | null;
+  dispatch_error: string | null;
 };
 
 export type TourListItem = {

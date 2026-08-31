@@ -120,6 +120,9 @@ export function RsvpGuestList({ tourId, guests, selectedIds, onToggle, onPreview
               </div>
               <StatusChip status={guest.dispatch_status} />
             </div>
+            {guest.dispatch_status === "failed" && guest.dispatch_error && (
+              <p className="pl-16 text-[11px] text-destructive">⚠️ {guest.dispatch_error}</p>
+            )}
             <div className="flex flex-wrap gap-x-3 gap-y-1 pl-16">
               <button
                 type="button"

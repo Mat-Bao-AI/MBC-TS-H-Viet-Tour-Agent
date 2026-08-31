@@ -40,6 +40,11 @@ class Guest(Base):
         nullable=False,
     )
     last_dispatched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Lý do thật lần gửi gần nhất thất bại (nếu có) — trước đây Celery task
+    # chỉ set dispatch_status=FAILED, không lưu lý do ở đâu HDV xem được, nên
+    # tin gửi lỗi trông như "đã gửi" mà khách không nhận được. Xoá (None) khi
+    # gửi thành công lần kế tiếp.
+    dispatch_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

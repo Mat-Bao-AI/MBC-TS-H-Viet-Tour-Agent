@@ -79,8 +79,10 @@ services:
     build:
       context: ./frontend
       args:
+        # Không còn NEXT_PUBLIC_API_KEY — auth trình duyệt đã chuyển sang JWT
+        # thật (Authorization: Bearer, lấy lúc đăng nhập), không phải build-time
+        # secret nữa. Xem frontend/src/lib/auth.ts + backend/app/core/security.py.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_API_KEY: ${API_KEY}
     container_name: tour_frontend
     restart: always
     env_file:

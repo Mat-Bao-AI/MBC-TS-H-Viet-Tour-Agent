@@ -1,7 +1,7 @@
 """public.py — trang lịch trình công khai, xuất URL chia sẻ cho khách xem MÀ
-KHÔNG cần đăng nhập/API key (khác mọi router khác trong api/v1, đều bắt buộc
-X-API-Key qua dependency ở api/v1/__init__.py — router này KHÔNG mount qua
-api_router, xem app/main.py).
+KHÔNG cần đăng nhập (khác mọi router khác trong api/v1, đều bắt buộc JWT thật
+qua dependency ở api/v1/__init__.py — router này KHÔNG mount qua api_router,
+xem app/main.py).
 
 ⚠️ BẢO MẬT — quyết định thiết kế đã chốt: 1 URL DÙNG CHUNG cho cả đoàn khách
 (không phải link riêng từng người). Vì vậy handler ở đây TUYỆT ĐỐI KHÔNG được

@@ -4,6 +4,7 @@ autogenerate hoặc khi app khởi động (create_all trong lúc dev nếu cầ
 from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
+from app.models.user import User, UserRole
 
 __all__ = [
     "Tour",
@@ -11,4 +12,6 @@ __all__ = [
     "Guest",
     "DispatchStatus",
     "Timeline",
+    "User",
+    "UserRole",
 ]

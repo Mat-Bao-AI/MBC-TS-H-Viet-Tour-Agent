@@ -1,9 +1,42 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const V1 = `${API_BASE}/api/v1`;
-// NEXT_PUBLIC_* bị inline vào bundle trình duyệt lúc build — key này KHÔNG bí
-// mật với người mở DevTools trên trang. Chỉ chặn truy cập ngẫu nhiên từ ngoài,
-// không phải auth thật (xem app/core/security.py ở backend).
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+// Token JWT lấy lúc đăng nhập (xem lib/auth.tsx) — lưu localStorage, gắn vào
+// mọi request /api/v1/* qua header Authorization: Bearer. Đọc trực tiếp mỗi
+// lần gọi (không cache biến module) để luôn phản ánh đúng trạng thái đăng
+// nhập hiện tại, kể cả sau khi login/logout mà không reload trang.
+const TOKEN_STORAGE_KEY = "vta_token";
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+export function setStoredToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  else window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export type UserRole = "admin" | "user";
+
+export type UserOut = {
+  id: string;
+  email: string;
+  full_name: string;
+  phone_number: string | null;
+  role: UserRole;
+  facebook_url: string | null;
+  zalo_link: string | null;
+  telegram_username: string | null;
+  is_active: boolean;
+};
+
+export type LoginResponse = {
+  access_token: string;
+  token_type: string;
+  user: UserOut;
+};
 
 export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
 export type DispatchGuestStatus = "pending" | "sent" | "read" | "confirmed" | "failed";
@@ -113,7 +146,9 @@ export type HealthStatus = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { "X-API-Key": API_KEY };
+  const headers: Record<string, string> = {};
+  const token = getStoredToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!(init?.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
@@ -123,6 +158,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
+    // 401 = token thiếu/hết hạn/tài khoản bị khoá — AuthProvider (lib/auth.tsx)
+    // bắt lỗi này ở message để tự đăng xuất + đưa về /signin, không phải lỗi
+    // nghiệp vụ thường gặp nên tách message riêng thay vì lẫn vào text lỗi
+    // chung chung.
+    if (res.status === 401) throw new Error("UNAUTHORIZED");
     throw new Error(`API ${path} lỗi ${res.status}: ${text}`);
   }
   if (res.status === 204) return undefined as T; // vd DELETE — không có body để parse
@@ -138,7 +178,7 @@ export const api = {
     return res.json();
   },
 
-  // Trang lịch trình công khai (/t/[id]) — endpoint này KHÔNG cần X-API-Key
+  // Trang lịch trình công khai (/t/[id]) — endpoint này KHÔNG cần đăng nhập
   // (xem backend app/api/v1/public.py), nên gọi thẳng fetch, không qua
   // request() (vốn luôn đính kèm key cho các API nội bộ khác).
   getPublicTour: async (id: string): Promise<PublicTourView> => {
@@ -246,4 +286,21 @@ export const api = {
     }),
 
   getTelegramInfo: () => request<TelegramInfo>("/telegram/info"),
+
+  // /auth/login KHÔNG cần token (chicken-and-egg) nên gọi thẳng fetch, không
+  // qua request() (vốn luôn gắn Authorization: Bearer từ token đã lưu).
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    const res = await fetch(`${V1}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Email hoặc mật khẩu không đúng.");
+      throw new Error(`Đăng nhập lỗi ${res.status}`);
+    }
+    return res.json();
+  },
+
+  getMe: () => request<UserOut>("/auth/me"),
 };

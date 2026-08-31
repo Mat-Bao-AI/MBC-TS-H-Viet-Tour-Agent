@@ -7,10 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
+from app.api.v1.account import login_router
 from app.api.v1.public import router as public_router
 from app.api.v1.telegram_webhook import router as telegram_webhook_router
 from app.core.config import get_settings
 from app.core.llm import log_llm_provider_status
+from app.core.seed import seed_admin_if_configured
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(name)s: %(message)s")
 
@@ -20,6 +22,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     log_llm_provider_status()  # cảnh báo ngay lúc khởi động nếu ≥2 LLM provider cùng cấu hình
+    await seed_admin_if_configured()  # tạo Admin đầu tiên nếu SEED_ADMIN_EMAIL được cấu hình
     yield
 
 
@@ -30,7 +33,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# allow_credentials=False vì auth dùng header X-API-Key (không phải cookie) —
+# allow_credentials=False vì auth dùng header Authorization: Bearer (JWT lưu
+# localStorage phía FE), không phải cookie —
 # tránh luôn tổ hợp allow_origins="*" + allow_credentials=True (trình duyệt
 # chặn, và là anti-pattern CORS phổ biến).
 app.add_middleware(
@@ -58,11 +62,14 @@ async def health() -> dict:
 
 app.include_router(api_router)
 
-# 2 router dưới đây KHÔNG mount qua api_router — cố tình đứng ngoài dependency
-# require_api_key (mọi router khác trong api/v1 đều bắt buộc X-API-Key, xem
-# app/api/v1/__init__.py). Đây là 2 lối đi công khai DUY NHẤT của backend:
+# 3 router dưới đây KHÔNG mount qua api_router — cố tình đứng ngoài dependency
+# get_current_user (mọi router khác trong api/v1 đều bắt buộc JWT, xem
+# app/api/v1/__init__.py). Đây là các lối đi công khai DUY NHẤT của backend:
 # - public_router: trang lịch trình cho khách xem (app/api/v1/public.py)
-# - telegram_webhook_router: Telegram tự gọi vào, không gửi được X-API-Key,
-#   xác thực bằng secret token riêng (app/api/v1/telegram_webhook.py)
+# - telegram_webhook_router: Telegram tự gọi vào, không gửi được JWT, xác
+#   thực bằng secret token riêng (app/api/v1/telegram_webhook.py)
+# - login_router: chicken-and-egg — chưa đăng nhập thì chưa có JWT để gửi
+#   (app/api/v1/account.py). Chỉ có /auth/login, KHÔNG có endpoint đăng ký.
 app.include_router(public_router, prefix="/api/v1")
 app.include_router(telegram_webhook_router, prefix="/api/v1")
+app.include_router(login_router, prefix="/api/v1")

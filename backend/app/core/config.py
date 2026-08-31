@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     environment: str = "development"
+    # Ký JWT đăng nhập app (xem app/core/security.py) — BẮT BUỘC đổi giá trị
+    # thật khi deploy (openssl rand -hex 32), giữ nguyên giá trị = ai cũng tự
+    # ký được token giả.
     secret_key: str = "dev-secret-key-change-me"
 
     # Database
@@ -59,13 +62,20 @@ class Settings(BaseSettings):
     upload_dir: str = "./storage/uploads"
     max_upload_size_mb: int = 20
 
-    # API key tối thiểu bảo vệ toàn bộ /api/v1/* (xem app/core/security.py).
-    # ⚠️ KHÔNG phải auth đầy đủ (chưa có user/role) — chỉ đủ chặn truy cập ngẫu
-    # nhiên từ mạng ngoài. Frontend gửi key này qua NEXT_PUBLIC_API_KEY (biến
-    # NEXT_PUBLIC_* bị inline vào bundle trình duyệt — bất kỳ ai mở DevTools
-    # trên trang đều đọc được key). Phù hợp scope MVP 1 HDV/1 workspace; KHÔNG
-    # đủ an toàn nếu đây là hệ thống nhiều người dùng không tin tưởng lẫn nhau.
+    # Secret NỘI BỘ giữa backend <-> zalo-bridge (service Node.js riêng, xem
+    # zalo-bridge/src/server.js + app/services/zalo_service.py) — KHÔNG còn
+    # liên quan gì tới frontend/trình duyệt nữa (đã thay bằng JWT thật, xem
+    # app/core/security.py). Chỉ 2 service backend nội bộ biết giá trị này.
     api_key: str = ""
+
+    # Tài khoản Admin đầu tiên — tạo TỰ ĐỘNG lúc backend khởi động nếu 2 biến
+    # này được set VÀ chưa có user nào dùng email đó (idempotent, an toàn chạy
+    # lại mỗi lần container start). Không có form tự đăng ký công khai (xem
+    # app/api/v1/account.py) nên đây là cách DUY NHẤT có tài khoản đầu tiên.
+    # Để trống = không tự tạo gì (vd sau khi đã có Admin thật, có thể xoá 2
+    # biến này khỏi .env cho gọn).
+    seed_admin_email: str = ""
+    seed_admin_password: str = ""
 
     # Domain frontend thật được phép gọi API khi ENVIRONMENT=production (CORS).
     # Để trống ở production nghĩa là KHÔNG origin nào gọi được — phải set khi deploy.

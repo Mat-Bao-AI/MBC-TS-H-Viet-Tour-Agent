@@ -11,11 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.access import get_owned_tour
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
+from app.models.user import User, UserRole
 from app.schemas.extraction import ExtractedGuest
 from app.schemas.timeline import EventWeather, TimelineEventSchema, TimelineUpdateRequest
 from app.services import weather_service
@@ -116,8 +119,13 @@ async def create_tour(
     guest_list_file: UploadFile | None = None,
     name: str | None = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TourCreateResponse:
-    tour = Tour(name=name or (itinerary_file.filename or "Tour chưa đặt tên"), status=TourStatus.DRAFT)
+    tour = Tour(
+        name=name or (itinerary_file.filename or "Tour chưa đặt tên"),
+        status=TourStatus.DRAFT,
+        owner_id=current_user.id,
+    )
     db.add(tour)
     await db.flush()  # có tour.id trước khi lưu file, để đặt tên file theo id
 
@@ -163,28 +171,25 @@ def tour_to_list_item(tour: Tour) -> TourListItem:
 
 
 @router.get("", response_model=list[TourListItem])
-async def list_tours(db: AsyncSession = Depends(get_db)) -> list[TourListItem]:
-    result = await db.execute(
-        select(Tour).options(selectinload(Tour.guests)).order_by(Tour.created_at.desc())
-    )
+async def list_tours(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[TourListItem]:
+    query = select(Tour).options(selectinload(Tour.guests)).order_by(Tour.created_at.desc())
+    if current_user.role != UserRole.ADMIN:
+        query = query.where(Tour.owner_id == current_user.id)
+    result = await db.execute(query)
     return [tour_to_list_item(t) for t in result.scalars().all()]
 
 
-async def _get_tour_or_404(tour_id: str, db: AsyncSession) -> Tour:
-    result = await db.execute(
-        select(Tour)
-        .where(Tour.id == tour_id)
-        .options(selectinload(Tour.guests), selectinload(Tour.timeline))
-    )
-    tour = result.scalar_one_or_none()
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
-    return tour
+async def _get_tour_or_404(tour_id: str, db: AsyncSession, current_user: User) -> Tour:
+    return await get_owned_tour(tour_id, db, current_user, with_relations=True)
 
 
 @router.get("/{tour_id}", response_model=TourDetail)
-async def get_tour(tour_id: str, db: AsyncSession = Depends(get_db)) -> TourDetail:
-    tour = await _get_tour_or_404(tour_id, db)
+async def get_tour(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> TourDetail:
+    tour = await _get_tour_or_404(tour_id, db, current_user)
     return TourDetail(
         id=tour.id,
         name=tour.name,
@@ -204,10 +209,13 @@ async def get_tour(tour_id: str, db: AsyncSession = Depends(get_db)) -> TourDeta
 
 @router.put("/{tour_id}/timeline", response_model=TourDetail)
 async def update_timeline(
-    tour_id: str, payload: TimelineUpdateRequest, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    payload: TimelineUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TourDetail:
     """HDV lưu timeline đã xem/sửa (kéo-thả sắp xếp lại, đổi giờ, thêm ghi chú...)."""
-    tour = await _get_tour_or_404(tour_id, db)
+    tour = await _get_tour_or_404(tour_id, db, current_user)
 
     events_json = [e.model_dump() for e in payload.events]
     if tour.timeline is None:
@@ -218,7 +226,7 @@ async def update_timeline(
 
     await db.commit()
 
-    return await get_tour(tour_id, db)
+    return await get_tour(tour_id, db, current_user)
 
 
 async def _resolve_reference_location(tour: Tour, events: list[TimelineEventSchema]) -> tuple[float, float, str] | None:
@@ -250,7 +258,7 @@ async def _resolve_reference_location(tour: Tour, events: list[TimelineEventSche
 
 async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
     """Thời tiết cho MỌI ngày trong timeline — dùng chung cho
-    GET /tours/{id}/weather (trang duyệt lịch trình, cần X-API-Key) VÀ
+    GET /tours/{id}/weather (trang duyệt lịch trình, cần đăng nhập) VÀ
     GET /public/tours/{id} (trang công khai, không cần key — xem
     app/api/v1/public.py). Trả rỗng (KHÔNG lỗi) nếu tour chưa có start_date,
     chưa có timeline, hoặc không geocode được bất kỳ địa điểm nào trong cả
@@ -295,16 +303,23 @@ async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
 
 
 @router.get("/{tour_id}/weather", response_model=list[EventWeather])
-async def get_tour_weather(tour_id: str, db: AsyncSession = Depends(get_db)) -> list[EventWeather]:
-    tour = await _get_tour_or_404(tour_id, db)
+async def get_tour_weather(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[EventWeather]:
+    tour = await _get_tour_or_404(tour_id, db, current_user)
     return await compute_tour_weather(tour)
 
 
 @router.post("/{tour_id}/guests", response_model=GuestOut)
-async def add_guest(tour_id: str, payload: GuestCreateRequest, db: AsyncSession = Depends(get_db)) -> Guest:
+async def add_guest(
+    tour_id: str,
+    payload: GuestCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Guest:
     """Thêm 1 khách thủ công — dùng khi HDV quên upload danh sách đoàn lúc
     tạo tour, hoặc chỉ có vài khách phát sinh thêm sau."""
-    await _get_tour_or_404(tour_id, db)  # 404 sớm nếu tour không tồn tại
+    await _get_tour_or_404(tour_id, db, current_user)  # 404 sớm nếu tour không tồn tại/không thuộc quyền
 
     guest = Guest(tour_id=tour_id, **payload.model_dump())
     db.add(guest)
@@ -315,7 +330,10 @@ async def add_guest(tour_id: str, payload: GuestCreateRequest, db: AsyncSession 
 
 @router.post("/{tour_id}/guests/import", response_model=GuestImportResponse)
 async def import_guests(
-    tour_id: str, guest_list_file: UploadFile, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    guest_list_file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> GuestImportResponse:
     """Import danh sách khách từ 1 file riêng (PDF/DOCX/XLSX/TXT) vào tour đã
     có sẵn — bù cho trường hợp HDV không upload danh sách đoàn lúc tạo tour.
@@ -323,7 +341,7 @@ async def import_guests(
     from app.agents.parser_agent import extract_guest_list
     from app.services import file_processor
 
-    tour = await _get_tour_or_404(tour_id, db)
+    tour = await _get_tour_or_404(tour_id, db, current_user)
 
     suffix = Path(guest_list_file.filename or "").suffix
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
@@ -358,7 +376,13 @@ async def import_guests(
 
 
 @router.delete("/{tour_id}/guests/{guest_id}", status_code=204)
-async def delete_guest(tour_id: str, guest_id: str, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_guest(
+    tour_id: str,
+    guest_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await get_owned_tour(tour_id, db, current_user)  # 404 sớm nếu tour không tồn tại/không thuộc quyền
     result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
     guest = result.scalar_one_or_none()
     if guest is None:
@@ -370,8 +394,13 @@ async def delete_guest(tour_id: str, guest_id: str, db: AsyncSession = Depends(g
 
 @router.put("/{tour_id}/guests/{guest_id}", response_model=GuestOut)
 async def update_guest(
-    tour_id: str, guest_id: str, payload: GuestUpdateRequest, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    guest_id: str,
+    payload: GuestUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Guest:
+    await get_owned_tour(tour_id, db, current_user)  # 404 sớm nếu tour không tồn tại/không thuộc quyền
     result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
     guest = result.scalar_one_or_none()
     if guest is None:
@@ -388,11 +417,16 @@ async def update_guest(
 
 @router.patch("/{tour_id}/guests/{guest_id}/status", response_model=GuestOut)
 async def update_guest_status(
-    tour_id: str, guest_id: str, payload: GuestStatusUpdateRequest, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    guest_id: str,
+    payload: GuestStatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Guest:
     """HDV tự đánh dấu RSVP (Đã xem/Đã xác nhận) sau khi liên hệ khách ngoài
     app — xem docstring GuestStatusUpdateRequest. Tách khỏi PUT update_guest
     ở trên để không lẫn với sửa thông tin cá nhân khách."""
+    await get_owned_tour(tour_id, db, current_user)  # 404 sớm nếu tour không tồn tại/không thuộc quyền
     result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
     guest = result.scalar_one_or_none()
     if guest is None:
@@ -406,10 +440,13 @@ async def update_guest_status(
 
 @router.post("/{tour_id}/reprocess", response_model=TourCreateResponse)
 async def reprocess_tour(
-    tour_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TourCreateResponse:
     """Chạy lại agent parse+timeline — dùng khi lần xử lý trước lỗi (status=failed)."""
-    tour = await _get_tour_or_404(tour_id, db)
+    tour = await _get_tour_or_404(tour_id, db, current_user)
     if not tour.source_path:
         raise HTTPException(status_code=400, detail="Tour chưa có tài liệu gốc để xử lý lại")
 

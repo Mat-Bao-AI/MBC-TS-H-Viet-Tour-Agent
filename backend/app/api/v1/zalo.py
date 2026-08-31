@@ -5,10 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.zalo_format_agent import format_guest_message
+from app.core.access import get_owned_tour
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.guest import Guest, NotificationChannel
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour
+from app.models.user import User
 from app.schemas.timeline import TimelineEventSchema
 from app.schemas.tour import GuestOut
 from app.schemas.zalo import (
@@ -39,10 +42,10 @@ def _has_sendable_contact(guest: Guest) -> bool:
     return bool(guest.zalo_id or guest.phone_number)
 
 
-async def _load_tour_with_timeline(tour_id: str, db: AsyncSession) -> tuple[Tour, list[TimelineEventSchema]]:
-    tour = await db.get(Tour, tour_id)
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
+async def _load_tour_with_timeline(
+    tour_id: str, db: AsyncSession, current_user: User
+) -> tuple[Tour, list[TimelineEventSchema]]:
+    tour = await get_owned_tour(tour_id, db, current_user)
 
     timeline_result = await db.execute(select(Timeline).where(Timeline.tour_id == tour_id))
     timeline = timeline_result.scalar_one_or_none()
@@ -51,8 +54,13 @@ async def _load_tour_with_timeline(tour_id: str, db: AsyncSession) -> tuple[Tour
 
 
 @router.get("/tours/{tour_id}/preview/{guest_id}", response_model=MessagePreview)
-async def preview_message(tour_id: str, guest_id: str, db: AsyncSession = Depends(get_db)) -> MessagePreview:
-    tour, events = await _load_tour_with_timeline(tour_id, db)
+async def preview_message(
+    tour_id: str,
+    guest_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessagePreview:
+    tour, events = await _load_tour_with_timeline(tour_id, db, current_user)
 
     guest_result = await db.execute(select(Guest).where(Guest.id == guest_id, Guest.tour_id == tour_id))
     guest = guest_result.scalar_one_or_none()
@@ -64,10 +72,13 @@ async def preview_message(tour_id: str, guest_id: str, db: AsyncSession = Depend
 
 
 @router.post("/tours/{tour_id}/dispatch", response_model=DispatchResponse)
-async def dispatch(tour_id: str, payload: DispatchRequest, db: AsyncSession = Depends(get_db)) -> DispatchResponse:
-    tour = await db.get(Tour, tour_id)
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
+async def dispatch(
+    tour_id: str,
+    payload: DispatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DispatchResponse:
+    await get_owned_tour(tour_id, db, current_user)
 
     query = select(Guest).where(Guest.tour_id == tour_id)
     if payload.guest_ids:
@@ -89,14 +100,15 @@ async def dispatch(tour_id: str, payload: DispatchRequest, db: AsyncSession = De
 
 @router.post("/tours/{tour_id}/quick-update", response_model=DispatchResponse)
 async def quick_update(
-    tour_id: str, payload: QuickUpdateRequest, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    payload: QuickUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DispatchResponse:
     """Gửi 1 tin tự do, tức thời cho khách — dùng cho FAB "Cập nhật nhanh"
     (tin tự soạn) và nút "Gửi Zalo" trên từng mốc timeline (tin ghép sẵn từ
     FE). Khác /dispatch: không dùng template lịch trình đầy đủ."""
-    tour = await db.get(Tour, tour_id)
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
+    await get_owned_tour(tour_id, db, current_user)
 
     query = select(Guest).where(Guest.tour_id == tour_id)
     if payload.guest_ids:
@@ -117,17 +129,15 @@ async def quick_update(
 
 
 @router.get("/tours/{tour_id}/dispatch-status", response_model=list[GuestOut])
-async def dispatch_status(tour_id: str, db: AsyncSession = Depends(get_db)) -> list[Guest]:
+async def dispatch_status(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[Guest]:
     """Danh sách khách kèm dispatch_status — nguồn dữ liệu cho RSVP dashboard
     (tab Đã gửi/Đã xem/Đã xác nhận ở FE), đủ để HDV biết đã gửi cho ai / còn
     thiếu ai."""
+    await get_owned_tour(tour_id, db, current_user)
     result = await db.execute(select(Guest).where(Guest.tour_id == tour_id))
-    guests = list(result.scalars().all())
-    if not guests:
-        tour = await db.get(Tour, tour_id)
-        if tour is None:
-            raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
-    return guests
+    return list(result.scalars().all())
 
 
 async def _resolve_missing_zalo_ids(db: AsyncSession, guests: list[Guest]) -> list[str]:
@@ -152,13 +162,13 @@ async def _resolve_missing_zalo_ids(db: AsyncSession, guests: list[Guest]) -> li
 
 
 @router.post("/tours/{tour_id}/group/create", response_model=GroupCreateResponse)
-async def create_tour_group(tour_id: str, db: AsyncSession = Depends(get_db)) -> GroupCreateResponse:
+async def create_tour_group(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> GroupCreateResponse:
     """Tạo 1 nhóm Zalo thật cho tour (zca-js createGroup), lưu group_id vào
     tour để các lần "Gửi Zalo Group" sau tái dùng — không tạo nhóm mới mỗi
     lần gửi."""
-    tour = await db.get(Tour, tour_id)
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
+    tour = await get_owned_tour(tour_id, db, current_user)
 
     guests_result = await db.execute(select(Guest).where(Guest.tour_id == tour_id))
     guests = list(guests_result.scalars().all())
@@ -203,11 +213,12 @@ async def create_tour_group(tour_id: str, db: AsyncSession = Depends(get_db)) ->
 
 @router.post("/tours/{tour_id}/group/send")
 async def send_group_message(
-    tour_id: str, payload: GroupSendRequest, db: AsyncSession = Depends(get_db)
+    tour_id: str,
+    payload: GroupSendRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    tour = await db.get(Tour, tour_id)
-    if tour is None:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy tour {tour_id}")
+    tour = await get_owned_tour(tour_id, db, current_user)
     if not tour.zalo_group_id:
         raise HTTPException(status_code=400, detail="Tour chưa có nhóm Zalo — tạo nhóm trước khi gửi.")
 

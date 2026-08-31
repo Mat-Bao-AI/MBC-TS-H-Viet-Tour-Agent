@@ -1,6 +1,6 @@
 """telegram_webhook.py — Telegram tự gọi vào endpoint này khi bot có tin nhắn
 mới (sau khi đăng ký qua POST /api/v1/telegram/setup). Router RIÊNG, KHÔNG
-mount qua api_router (Telegram không gửi được X-API-Key) — xác thực bằng
+mount qua api_router (Telegram không gửi được JWT) — xác thực bằng
 header X-Telegram-Bot-Api-Secret-Token thay thế (Telegram tự đính kèm đúng
 secret đã đăng ký lúc setWebhook, xem telegram_service.set_webhook).
 

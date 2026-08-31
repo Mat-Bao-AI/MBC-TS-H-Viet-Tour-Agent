@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -37,6 +37,12 @@ class Tour(Base):
     status: Mapped[TourStatus] = mapped_column(
         Enum(TourStatus, native_enum=False, length=20), default=TourStatus.DRAFT, nullable=False
     )
+    # Multi-tenant theo HDV — nullable vì tour tạo TRƯỚC khi có hệ thống auth
+    # (không có chủ) vẫn phải đọc/hiển thị được; seed_admin_if_configured()
+    # (app/core/seed.py) backfill các tour này về Admin đầu tiên lúc khởi
+    # động. Tour tạo mới LUÔN có owner_id (set ở create_tour). Xem
+    # app/core/access.py cho logic lọc theo quyền sở hữu.
+    owner_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -49,3 +55,4 @@ class Tour(Base):
     timeline: Mapped["Timeline | None"] = relationship(
         "Timeline", back_populates="tour", uselist=False, cascade="all, delete-orphan"
     )
+    owner: Mapped["User | None"] = relationship("User", back_populates="tours")

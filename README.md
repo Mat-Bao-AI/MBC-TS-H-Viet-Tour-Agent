@@ -49,7 +49,7 @@ kênh** thay vì phụ thuộc hoàn toàn:
   `.env.example`.
 - **Trang lịch trình công khai** `/t/<tour_id>` — 1 URL dùng chung cho cả
   đoàn, không cần đăng nhập gì, không lộ danh sách khách/SĐT/ghế/phòng (API
-  `GET /api/v1/public/tours/{id}` cố tình đứng ngoài cổng `X-API-Key`). Style
+  `GET /api/v1/public/tours/{id}` cố tình đứng ngoài cổng JWT). Style
   lấy cảm hứng từ `docs/Demo-tour.html`. HDV bấm "Sao chép link" ở Dashboard
   hoặc trang RSVP để gửi qua bất kỳ kênh nào (SMS, email, in QR...).
 - **RSVP page** hết khoá cứng theo Zalo — nút gửi chỉ chặn khi CẢ Zalo lẫn
@@ -84,10 +84,19 @@ toàn.
     `zalo-bridge/src/zaloClient.js`).
   - **Telegram:** `app/services/telegram_service.py` gọi thẳng Bot API chính
     thức bằng `httpx`, không cần service riêng.
-- **2 lối đi công khai** (KHÔNG cần `X-API-Key`, cố tình tách khỏi
-  `api_router` — xem `app/main.py`): `GET /api/v1/public/tours/{id}` (trang
-  lịch trình cho khách) và `POST /api/v1/telegram/webhook` (Telegram gọi
-  vào, xác thực bằng secret token riêng thay vì API key).
+- **3 lối đi công khai** (KHÔNG cần JWT, cố tình tách khỏi `api_router` —
+  xem `app/main.py`): `GET /api/v1/public/tours/{id}` (trang lịch trình cho
+  khách), `POST /api/v1/telegram/webhook` (Telegram gọi vào, xác thực bằng
+  secret token riêng) và `POST /api/v1/auth/login` (chicken-and-egg — chưa
+  đăng nhập thì chưa có JWT để gửi).
+- **Auth app thật (2026-08-31):** đăng nhập bằng email/mật khẩu
+  (`app/api/v1/account.py`) cấp JWT (`Authorization: Bearer`, xem
+  `app/core/security.py`), 2 vai trò Admin/User (HDV). Multi-tenant theo
+  HDV — mỗi User chỉ thấy/thao tác tour do chính mình tạo (`Tour.owner_id`,
+  lọc qua `app/core/access.py`), Admin thấy mọi tour. Không có form tự đăng
+  ký — tài khoản Admin đầu tiên tạo tự động lúc khởi động nếu
+  `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` được cấu hình
+  (`app/core/seed.py`).
 
 Chi tiết cấu trúc thư mục: xem mục 5 trong
 [viet-tour-agent-zalo.txt](./viet-tour-agent-zalo.txt).
@@ -132,14 +141,16 @@ Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
 
 Đã chạy `/my-sec` audit (2026-08-25) và sửa các mục tìm được:
 
-- ✅ **API key tối thiểu** (`X-API-Key`) chặn `/api/v1/*` và `zalo-bridge` —
-  xem `app/core/security.py`. **Trừ 2 route công khai cố ý** (xem mục Kiến
-  trúc): trang lịch trình cho khách (không có field cá nhân nào) + Telegram
-  webhook (xác thực bằng secret token riêng). ⚠️ Không phải auth đầy đủ (chưa
-  có user/role), và `NEXT_PUBLIC_API_KEY` bị inline vào bundle trình duyệt
-  nên không bí mật với người đã mở được trang. Đủ cho scope MVP 1 HDV/1
-  workspace chạy nội bộ — **không deploy public rộng rãi khi chưa có auth
-  thật (user/session/role)**.
+- ✅ **Auth thật (JWT, 2026-08-31)** chặn `/api/v1/*` — đăng nhập
+  email/mật khẩu, 2 vai trò Admin/User, multi-tenant theo HDV (xem mục Kiến
+  trúc). **Trừ 3 route công khai cố ý**: trang lịch trình cho khách (không
+  có field cá nhân nào), Telegram webhook (xác thực bằng secret token
+  riêng) và `POST /auth/login` (chưa đăng nhập thì chưa có JWT). Token lưu
+  `localStorage` phía trình duyệt (không phải cookie) — vẫn có rủi ro lộ nếu
+  trang dính XSS, chấp nhận đánh đổi này ở quy mô công cụ nội bộ hiện tại.
+- ✅ **Secret nội bộ backend↔zalo-bridge** (`API_KEY` trong `.env`) tách
+  riêng khỏi auth người dùng — 2 service Docker biết, không liên quan gì
+  tới trình duyệt/HDV.
 - ✅ 4 dependency có CVE đã biết (`pypdf`, `python-multipart`, `aiomysql`,
   `starlette` qua `fastapi` cũ) đã bump lên bản vá, `pip-audit` xác nhận 0 CVE.
 - ✅ MySQL/Redis không còn publish port ra host (chỉ Docker network nội bộ).

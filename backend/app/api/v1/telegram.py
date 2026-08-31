@@ -1,6 +1,6 @@
-"""telegram.py — thông tin Bot + đăng ký webhook (HDV dùng, cần X-API-Key
+"""telegram.py — thông tin Bot + đăng ký webhook (HDV dùng, cần đăng nhập JWT
 như mọi router khác trong api/v1 — khác app/api/v1/telegram_webhook.py, nơi
-Telegram tự gọi vào và KHÔNG gửi được X-API-Key)."""
+Telegram tự gọi vào và KHÔNG gửi được JWT)."""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel

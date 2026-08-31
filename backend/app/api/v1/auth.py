@@ -1,7 +1,9 @@
 """auth.py — đăng nhập Zalo Personal Client (unofficial, QR) qua zalo_bridge.
 
-Không phải auth cho chính app này (chưa có multi-user login ở Phase 1, 1
-workspace = 1 HDV) — đây là "đăng nhập" tài khoản Zalo dùng để gửi tin.
+Không phải auth cho chính app này — đó là app/api/v1/account.py (JWT thật,
+POST /auth/login). Đây là "đăng nhập" tài khoản Zalo CÁ NHÂN dùng để GỬI tin
+cho khách, dùng CHUNG cho mọi HDV (xem app/core/access.py — quyết định giữ 1
+tài khoản Zalo chung, chưa multi-session theo từng HDV).
 """
 
 from fastapi import APIRouter, HTTPException
@@ -42,9 +44,9 @@ async def login_status() -> ZaloLoginStatus:
 
 @router.post("/logout", response_model=ZaloLoginStatus)
 async def logout() -> ZaloLoginStatus:
-    """Ngắt kết nối Zalo cá nhân — dùng cho nút "Ngắt kết nối"/"Đăng xuất" ở
-    Settings. Đây là "session" thật duy nhất app có ở Phase 1 (chưa có
-    user/role riêng, xem ghi chú đầu file)."""
+    """Ngắt kết nối Zalo cá nhân — dùng cho nút "Ngắt kết nối" ở Settings.
+    Khác đăng xuất tài khoản app (đó là xoá JWT phía FE, xem
+    app/api/v1/account.py) — đây chỉ ngắt phiên Zalo dùng để gửi tin."""
     try:
         data = await logout_zalo()
     except ZaloServiceError as exc:

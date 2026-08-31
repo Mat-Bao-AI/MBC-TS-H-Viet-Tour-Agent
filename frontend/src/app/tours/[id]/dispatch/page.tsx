@@ -149,7 +149,7 @@ export default function DispatchTourPage() {
       {result && (
         <p className="text-sm text-success">
           Đã xếp hàng gửi {result.queued} tin — đang cập nhật trạng thái thật bên dưới (vài giây)...
-          {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu SĐT/Zalo ID.`}
+          {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu thông tin liên hệ theo kênh đã chọn.`}
         </p>
       )}
 

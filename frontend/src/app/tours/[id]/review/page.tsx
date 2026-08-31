@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { api, EventWeather, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
+import { api, EventWeather, TelegramInfo, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { TimelineBuilder } from "@/components/timeline-builder";
 import { TimelineView } from "@/components/timeline-view";
 import { QuickUpdateSheet } from "@/components/quick-update-sheet";
@@ -20,6 +20,7 @@ export default function ReviewTourPage() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [weather, setWeather] = useState<EventWeather[]>([]);
   const [zaloStatus, setZaloStatus] = useState<ZaloLoginStatus | null>(null);
+  const [telegramInfo, setTelegramInfo] = useState<TelegramInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export default function ReviewTourPage() {
   useEffect(() => {
     load();
     api.getZaloLoginStatus().then(setZaloStatus).catch(() => {});
+    api.getTelegramInfo().then(setTelegramInfo).catch(() => setTelegramInfo({ configured: false, bot_username: null }));
     // Poll trong lúc agent đang parse — dừng poll khi đã có kết quả (review/dispatched/failed)
     const interval = setInterval(() => {
       setTour((current) => {
@@ -146,6 +148,7 @@ export default function ReviewTourPage() {
                   events={events}
                   weather={weather}
                   zaloConnected={zaloConnected}
+                  telegramConfigured={!!telegramInfo?.configured}
                 />
               )}
             </CardContent>
@@ -166,7 +169,7 @@ export default function ReviewTourPage() {
               />
               <div className="mt-4">
                 <Link href={`/tours/${tourId}/dispatch`}>
-                  <Button>Sang bước gửi Zalo →</Button>
+                  <Button>Sang bước gửi thông báo →</Button>
                 </Link>
               </div>
             </CardContent>
@@ -186,6 +189,7 @@ export default function ReviewTourPage() {
               tourId={tourId}
               guestCount={tour.guests.length}
               zaloConnected={zaloConnected}
+              telegramConfigured={!!telegramInfo?.configured}
               onClose={() => setShowQuickUpdate(false)}
             />
           )}

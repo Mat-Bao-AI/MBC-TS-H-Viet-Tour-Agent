@@ -121,7 +121,7 @@ export default function HomePage() {
                       <div className="h-full rounded-full bg-primary" style={{ width: `${progressPct}%` }} />
                     </div>
                     <span className="text-[11px] text-muted-foreground">
-                      {tour.guests_sent}/{tour.guests_total} Zalo
+                      Đã gửi {tour.guests_sent}/{tour.guests_total}
                     </span>
                   </div>
                 )}

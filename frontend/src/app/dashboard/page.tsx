@@ -88,7 +88,7 @@ export default function DashboardPage() {
                 <div className="h-full rounded-full bg-primary" style={{ width: `${progressPct}%` }} />
               </div>
               <p className="text-xs text-muted-foreground">
-                Đã gửi Zalo: {tour.guests_sent}/{tour.guests_total}
+                Đã gửi thông báo: {tour.guests_sent}/{tour.guests_total}
               </p>
             </div>
           )}
@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 className="flex flex-col items-center gap-1 rounded-md border border-border py-3 hover:bg-muted"
               >
                 <span className="text-lg">📊</span>
-                Thống kê Zalo
+                Thống kê gửi tin
               </Link>
             </div>
           </div>

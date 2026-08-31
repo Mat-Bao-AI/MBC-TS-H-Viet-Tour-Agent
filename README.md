@@ -2,7 +2,9 @@
 
 Agent AI hỗ trợ hướng dẫn viên du lịch (HDV) biến tài liệu lịch trình thô
 (Word/PDF/Excel) thành timeline chi tiết theo từng mốc giờ, và tự động gửi
-thông báo cá nhân hoá tới khách hàng qua Zalo.
+thông báo cá nhân hoá tới khách hàng — **đa kênh**: Zalo cá nhân, Telegram,
+hoặc trang lịch trình công khai xem trực tiếp trên web (không phụ thuộc 1
+kênh duy nhất, xem mục Phase 3 bên dưới).
 
 > Tài liệu mô tả sản phẩm gốc: [viet-tour-agent-zalo.txt](./viet-tour-agent-zalo.txt)
 
@@ -30,9 +32,33 @@ token đầy đủ):
 - **Gửi Zalo Group**: tạo 1 nhóm Zalo thật (zca-js `createGroup`) gồm khách
   đã resolve được zalo_id, gửi tin chung 1 lần thay vì N tin 1-1.
 
+✅ **Phase 3 — đa kênh gửi thông báo** (2026-08-31): Zalo (`zca-js`) gặp lỗi
+thật khó chẩn đoán lúc HDV test thật (gửi tin thất bại âm thầm, tạo nhóm
+502 "Không tìm thấy" — API không chính thức, nghi do giới hạn nền tảng yêu
+cầu là bạn bè Zalo, chưa xác nhận 100%) → tách Zalo thành **1 trong nhiều
+kênh** thay vì phụ thuộc hoàn toàn:
+
+- **Interface `NotificationSender`** (`backend/app/services/notification/`)
+  — mỗi khách chọn 1 kênh (`notification_channel`: zalo/telegram), Celery
+  task gọi qua interface chung, không biết/không cần biết đang gửi kênh nào.
+- **Telegram** (`app/services/telegram_service.py`) — dùng Bot API chính
+  thức (có tài liệu, ổn định hơn `zca-js`), không cần service bridge riêng.
+  Khách tự bấm deep-link `t.me/<bot>?start=<mã khách>` để kết nối (giới hạn
+  thật của nền tảng — bot không tự tìm được chat_id từ SĐT như Zalo). Cần tự
+  tạo Bot qua @BotFather + cấu hình `.env`, xem hướng dẫn trong
+  `.env.example`.
+- **Trang lịch trình công khai** `/t/<tour_id>` — 1 URL dùng chung cho cả
+  đoàn, không cần đăng nhập gì, không lộ danh sách khách/SĐT/ghế/phòng (API
+  `GET /api/v1/public/tours/{id}` cố tình đứng ngoài cổng `X-API-Key`). Style
+  lấy cảm hứng từ `docs/Demo-tour.html`. HDV bấm "Sao chép link" ở Dashboard
+  hoặc trang RSVP để gửi qua bất kỳ kênh nào (SMS, email, in QR...).
+- **RSVP page** hết khoá cứng theo Zalo — nút gửi chỉ chặn khi CẢ Zalo lẫn
+  Telegram đều chưa sẵn sàng; mỗi khách có công tắc chọn kênh riêng.
+
 Chưa làm (còn lại, để backlog): OCR ảnh chụp lịch trình, VietQR, Zalo OA
 chính thức, tự động hoá "Đã xem" qua webhook `seen_messages` thật của
-zca-js (đã xác nhận API tồn tại, chưa triển khai).
+zca-js (đã xác nhận API tồn tại, chưa triển khai), test Telegram thật (cần
+user tự tạo Bot + deploy domain HTTPS để đăng ký webhook).
 
 ⚠️ **Lưu ý rủi ro:** Phase 1 dùng Zalo Personal Client không chính thức
 (`zca-js`, đăng nhập quét QR) — vi phạm Điều khoản dịch vụ của Zalo, tài khoản
@@ -46,14 +72,22 @@ toàn.
   orchestration) / SQLAlchemy Async + MySQL 8.0 / Celery + Redis
 - **Frontend:** Next.js 14 (App Router) / TypeScript / TailwindCSS / shadcn-ui
 - **LLM Engine:** Gemini 1.5 Flash
-- **Zalo:** `zca-js` (unofficial Personal Client, QR login) chạy trong service
-  Node.js riêng `zalo-bridge/` — backend Python gọi qua HTTP nội bộ
-  (`ZALO_BRIDGE_URL`). Lý do tách service: `zca-js` chỉ có bản JS, thư viện
-  Python thuần (`zlapi`) không hỗ trợ đăng nhập QR như tài liệu mô tả (chỉ
-  nhập cookie/IMEI thủ công từ trình duyệt).
-  ⚠️ Giới hạn đã xác nhận: chưa có API public để đăng nhập lại bằng session đã
-  lưu — cần quét QR lại mỗi khi `zalo_bridge` restart (chi tiết trong
-  `zalo-bridge/src/zaloClient.js`).
+- **Đa kênh thông báo:** `app/services/notification/` (interface chung) —
+  xem chi tiết mục Phase 3 ở trên.
+  - **Zalo:** `zca-js` (unofficial Personal Client, QR login) chạy trong
+    service Node.js riêng `zalo-bridge/` — backend Python gọi qua HTTP nội bộ
+    (`ZALO_BRIDGE_URL`). Lý do tách service: `zca-js` chỉ có bản JS, thư viện
+    Python thuần (`zlapi`) không hỗ trợ đăng nhập QR như tài liệu mô tả (chỉ
+    nhập cookie/IMEI thủ công từ trình duyệt).
+    ⚠️ Giới hạn đã xác nhận: chưa có API public để đăng nhập lại bằng session
+    đã lưu — cần quét QR lại mỗi khi `zalo_bridge` restart (chi tiết trong
+    `zalo-bridge/src/zaloClient.js`).
+  - **Telegram:** `app/services/telegram_service.py` gọi thẳng Bot API chính
+    thức bằng `httpx`, không cần service riêng.
+- **2 lối đi công khai** (KHÔNG cần `X-API-Key`, cố tình tách khỏi
+  `api_router` — xem `app/main.py`): `GET /api/v1/public/tours/{id}` (trang
+  lịch trình cho khách) và `POST /api/v1/telegram/webhook` (Telegram gọi
+  vào, xác thực bằng secret token riêng thay vì API key).
 
 Chi tiết cấu trúc thư mục: xem mục 5 trong
 [viet-tour-agent-zalo.txt](./viet-tour-agent-zalo.txt).
@@ -98,11 +132,14 @@ Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
 
 Đã chạy `/my-sec` audit (2026-08-25) và sửa các mục tìm được:
 
-- ✅ **API key tối thiểu** (`X-API-Key`) chặn toàn bộ `/api/v1/*` và `zalo-bridge` —
-  xem `app/core/security.py`. ⚠️ Không phải auth đầy đủ (chưa có user/role),
-  và `NEXT_PUBLIC_API_KEY` bị inline vào bundle trình duyệt nên không bí mật
-  với người đã mở được trang. Đủ cho scope MVP 1 HDV/1 workspace chạy nội bộ —
-  **không deploy public rộng rãi khi chưa có auth thật (user/session/role)**.
+- ✅ **API key tối thiểu** (`X-API-Key`) chặn `/api/v1/*` và `zalo-bridge` —
+  xem `app/core/security.py`. **Trừ 2 route công khai cố ý** (xem mục Kiến
+  trúc): trang lịch trình cho khách (không có field cá nhân nào) + Telegram
+  webhook (xác thực bằng secret token riêng). ⚠️ Không phải auth đầy đủ (chưa
+  có user/role), và `NEXT_PUBLIC_API_KEY` bị inline vào bundle trình duyệt
+  nên không bí mật với người đã mở được trang. Đủ cho scope MVP 1 HDV/1
+  workspace chạy nội bộ — **không deploy public rộng rãi khi chưa có auth
+  thật (user/session/role)**.
 - ✅ 4 dependency có CVE đã biết (`pypdf`, `python-multipart`, `aiomysql`,
   `starlette` qua `fastapi` cũ) đã bump lên bản vá, `pip-audit` xác nhận 0 CVE.
 - ✅ MySQL/Redis không còn publish port ra host (chỉ Docker network nội bộ).
@@ -112,11 +149,15 @@ Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
 - ⚠️ CORS production đọc từ `ALLOWED_ORIGIN` — **phải set domain thật khi
   deploy**, để trống sẽ chặn hết kể cả frontend thật.
 
-## Quy trình sử dụng (Phase 1)
+## Quy trình sử dụng
 
-1. Đăng nhập, quét mã QR để kết nối tài khoản Zalo cá nhân.
-2. Tải lên tài liệu lịch trình thô (Word/PDF/Excel) và danh sách khách.
-3. Agent AI phân tích và tự động tạo timeline chi tiết.
-4. HDV duyệt/chỉnh sửa trên giao diện.
-5. Nhấn Gửi Zalo — Celery worker xếp hàng và gửi tin nhắn cá nhân hoá tới
-   từng khách.
+1. Tải lên tài liệu lịch trình thô (Word/PDF/Excel) và danh sách khách.
+2. Agent AI phân tích và tự động tạo timeline chi tiết.
+3. HDV duyệt/chỉnh sửa trên giao diện.
+4. Chọn kênh gửi cho từng khách (mặc định Zalo):
+   - **Zalo:** quét mã QR kết nối tài khoản cá nhân.
+   - **Telegram:** khách tự bấm link mời (`t.me/<bot>?start=...`) trước.
+   - **Không muốn gửi tin cho ai:** chỉ cần copy link lịch trình công khai
+     (`/t/<tour_id>`) gửi qua bất kỳ đâu — khách tự mở xem, không cần kênh nào.
+5. Nhấn Gửi — Celery worker xếp hàng và gửi tin nhắn cá nhân hoá tới từng
+   khách theo đúng kênh đã chọn.

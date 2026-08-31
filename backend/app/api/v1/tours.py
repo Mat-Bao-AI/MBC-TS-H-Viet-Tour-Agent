@@ -3,7 +3,7 @@
 import asyncio
 import tempfile
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -248,10 +248,19 @@ async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
         coords = await weather_service.geocode(location)
         if coords is None:
             return None
+
         forecast = await weather_service.get_forecast(coords[0], coords[1], date_str)
-        if forecast is None:
+        if forecast is not None:
+            return EventWeather(day_index=day_index, location=location, date=date_str, is_forecast=True, **forecast)
+
+        # Ngoài phạm vi dự báo thật (~16 ngày tới) — fallback sang trung bình
+        # nhiều năm (dữ liệu khí hậu thực đo quá khứ), is_forecast=False để
+        # FE hiển thị khác rõ, không lẫn với dự báo chính xác.
+        event_date = date.fromisoformat(date_str)
+        climate = await weather_service.get_climate_average(coords[0], coords[1], event_date.month, event_date.day)
+        if climate is None:
             return None
-        return EventWeather(day_index=day_index, location=location, date=date_str, **forecast)
+        return EventWeather(day_index=day_index, location=location, date=date_str, is_forecast=False, **climate)
 
     # Gọi song song cho mọi (ngày, địa điểm) thay vì tuần tự — trang không
     # phải chờ N x 2 request nối tiếp nhau.

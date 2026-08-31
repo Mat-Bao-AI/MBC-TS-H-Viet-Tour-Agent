@@ -81,6 +81,10 @@ export type EventWeather = {
   temp_max: number;
   description: string;
   icon: string;
+  // true = dự báo thật (Open-Meteo forecast, ≤16 ngày tới). false = trung
+  // bình nhiều năm (Open-Meteo Archive, dữ liệu khí hậu quá khứ) — tham
+  // khảo khi tour ngoài phạm vi dự báo, KHÔNG phải dự báo chính xác.
+  is_forecast: boolean;
 };
 
 export type PublicTourView = {

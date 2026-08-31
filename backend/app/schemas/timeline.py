@@ -29,10 +29,19 @@ class TimelineUpdateRequest(BaseModel):
 
 
 class EventWeather(BaseModel):
-    """Dự báo thời tiết thật (Open-Meteo) cho 1 (ngày, địa điểm) trong
-    timeline — trả về GET /tours/{id}/weather, ghép lại ở FE theo
+    """Thời tiết cho 1 (ngày, địa điểm) trong timeline — trả về
+    GET /tours/{id}/weather và GET /public/tours/{id}, ghép lại ở FE theo
     (day_index, location). Không có bản ghi nào bịa — thiếu ngày tour hoặc
-    Open-Meteo không có dữ liệu thì đơn giản là không có trong danh sách."""
+    Open-Meteo không có dữ liệu (cả dự báo lẫn khí hậu lịch sử) thì đơn giản
+    là không có trong danh sách.
+
+    is_forecast phân biệt 2 loại dữ liệu THẬT nhưng khác bản chất — FE PHẢI
+    hiển thị khác nhau, không được gộp chung coi như nhau:
+    - True: dự báo thật (Open-Meteo forecast, chỉ có trong ~16 ngày tới).
+    - False: trung bình nhiều năm — dữ liệu khí hậu thực đo quá khứ
+      (Open-Meteo Archive), dùng khi tour ngoài phạm vi dự báo. Là THAM
+      KHẢO xu hướng thời tiết mùa đó, KHÔNG phải dự báo chính xác cho đúng
+      ngày đó."""
 
     day_index: int
     location: str
@@ -41,3 +50,4 @@ class EventWeather(BaseModel):
     temp_max: float
     description: str
     icon: str
+    is_forecast: bool = True

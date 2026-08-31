@@ -6,12 +6,18 @@
 // khác hệ màu xanh Stitch dùng cho app nội bộ HDV, vì đây là trải nghiệm cho
 // khách bên ngoài, không phải màn hình trong app.
 //
+// Redesign (2026-08-31, theo phản hồi user): tab điều hướng theo ngày thay
+// vì cuộn qua toàn bộ lịch trình 1 lần + khối thời tiết nổi bật đầu trang.
+// Đã thử dùng Stitch MCP thiết kế cấu trúc này nhưng dịch vụ timeout 3 lần
+// liên tiếp lúc thực hiện — code trực tiếp theo đúng ngôn ngữ thiết kế đã mô
+// tả cho Stitch (tông ấm/xanh lá giữ nguyên, chỉ đổi cấu trúc).
+//
 // ⚠️ KHÔNG được thêm hiển thị danh sách khách/SĐT/ghế/phòng vào trang này —
 // API public/tours/{id} chủ động không trả các field đó, giữ đúng quyết định
 // bảo mật "1 link chung cho cả đoàn".
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, PublicTourView } from "@/lib/api";
+import { api, EventWeather, PublicTourView } from "@/lib/api";
 
 const WEATHER_ICON: Record<string, string> = {
   "Nắng": "☀️",
@@ -38,16 +44,29 @@ export default function PublicTourPage() {
   const [tour, setTour] = useState<PublicTourView | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeDay, setActiveDay] = useState<number | null>(null);
 
   useEffect(() => {
     api
       .getPublicTour(params.id)
-      .then(setTour)
+      .then((data) => {
+        setTour(data);
+        const firstDay = data.timeline_events[0]?.day_index ?? null;
+        setActiveDay(firstDay);
+      })
       .catch((err) => {
         if (err instanceof Error && err.message === "NOT_FOUND") setNotFound(true);
         else setError(err instanceof Error ? err.message : String(err));
       });
   }, [params.id]);
+
+  const dayGroups = useMemo(() => (tour ? groupByDay(tour.timeline_events) : []), [tour]);
+
+  const weatherByDay = useMemo(() => {
+    const map = new Map<number, EventWeather>();
+    if (tour) for (const w of tour.weather) if (!map.has(w.day_index)) map.set(w.day_index, w);
+    return map;
+  }, [tour]);
 
   if (notFound) {
     return (
@@ -77,13 +96,12 @@ export default function PublicTourPage() {
     );
   }
 
-  const dayGroups = groupByDay(tour.timeline_events);
-  const weatherByDay = new Map<number, PublicTourView["weather"][number]>();
-  for (const w of tour.weather) if (!weatherByDay.has(w.day_index)) weatherByDay.set(w.day_index, w);
+  const activeWeather = activeDay !== null ? weatherByDay.get(activeDay) : undefined;
+  const activeEvents = dayGroups.find(([d]) => d === activeDay)?.[1] ?? [];
 
   return (
     <PageShell>
-      <div className="py-10 text-center">
+      <div className="py-8 text-center">
         <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-[#1a6b4e] px-3.5 py-1.5 text-xs font-semibold text-white">
           📋 LỊCH TRÌNH TOUR
         </div>
@@ -105,48 +123,86 @@ export default function PublicTourPage() {
         </div>
       )}
 
-      {tour.ready &&
-        dayGroups.map(([day, events]) => {
-          const weather = weatherByDay.get(day);
-          return (
-            <div key={day} className="mb-4 rounded-xl border border-[#e5e5e5] bg-white p-5">
-              <div className="mb-3.5 flex items-center gap-3 border-b border-[#e5e5e5] pb-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#e8f5ee] text-lg text-[#1a6b4e]">
-                  📅
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-bold text-[#1a1a1a]">Ngày {day}</p>
-                  {weather && (
-                    <p className="text-xs text-[#6b6b6b]">
-                      {WEATHER_ICON[weather.description] ?? "🌡️"} {weather.description} · {Math.round(weather.temp_min)}
-                      –{Math.round(weather.temp_max)}°C tại {weather.location}
-                    </p>
+      {tour.ready && (
+        <>
+          {/* Khối thời tiết nổi bật — luôn phản ánh đúng ngày TAB đang chọn bên dưới */}
+          {activeWeather && <WeatherCard weather={activeWeather} />}
+
+          {/* Tab điều hướng theo ngày — sticky, chỉ hiện timeline của 1 ngày tại 1 thời điểm */}
+          <div className="sticky top-0 z-10 -mx-4 mb-4 flex gap-2 overflow-x-auto bg-[#f7f6f3]/95 px-4 py-3 backdrop-blur">
+            {dayGroups.map(([day]) => (
+              <button
+                key={day}
+                onClick={() => setActiveDay(day)}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  activeDay === day
+                    ? "bg-[#1a6b4e] text-white"
+                    : "border border-[#e5e5e5] bg-white text-[#6b6b6b]"
+                }`}
+              >
+                Ngày {day}
+              </button>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-[#e5e5e5] bg-white p-5">
+            <div className="relative flex flex-col gap-4 pl-7">
+              <div className="absolute bottom-1.5 left-2 top-1.5 w-0.5 bg-[#e5e5e5]" />
+              {activeEvents.map((e, i) => (
+                <div key={i} className="relative">
+                  <div className="absolute -left-[22px] top-1 h-3 w-3 rounded-full border-[2.5px] border-[#1a6b4e] bg-white" />
+                  <p className="text-xs font-semibold text-[#1a6b4e]">{e.start_time}</p>
+                  <p className="text-sm font-semibold text-[#1a1a1a]">{e.title}</p>
+                  {e.location && <p className="mt-0.5 text-[13px] text-[#6b6b6b]">📍 {e.location}</p>}
+                  {e.notes && (
+                    <p className="mt-1 rounded-md bg-[#fef3c7] px-2.5 py-1.5 text-xs text-[#92400e]">💡 {e.notes}</p>
                   )}
                 </div>
-              </div>
-
-              <div className="relative flex flex-col gap-4 pl-7">
-                <div className="absolute bottom-1.5 left-2 top-1.5 w-0.5 bg-[#e5e5e5]" />
-                {events.map((e, i) => (
-                  <div key={i} className="relative">
-                    <div className="absolute -left-[22px] top-1 h-3 w-3 rounded-full border-[2.5px] border-[#1a6b4e] bg-white" />
-                    <p className="text-xs font-semibold text-[#1a6b4e]">{e.start_time}</p>
-                    <p className="text-sm font-semibold text-[#1a1a1a]">{e.title}</p>
-                    {e.location && <p className="mt-0.5 text-[13px] text-[#6b6b6b]">📍 {e.location}</p>}
-                    {e.notes && (
-                      <p className="mt-1 rounded-md bg-[#fef3c7] px-2.5 py-1.5 text-xs text-[#92400e]">
-                        💡 {e.notes}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        </>
+      )}
 
       <p className="py-8 text-center text-xs text-[#6b6b6b]">Tạo bởi VietTour Agent</p>
     </PageShell>
+  );
+}
+
+function WeatherCard({ weather }: { weather: EventWeather }) {
+  const icon = WEATHER_ICON[weather.description] ?? weather.icon ?? "🌡️";
+  return (
+    <div
+      className={`mb-4 flex items-center gap-4 rounded-xl p-5 text-white ${
+        weather.is_forecast
+          ? "bg-gradient-to-br from-[#2563eb] to-[#3b82f6]"
+          : "bg-gradient-to-br from-[#6b7280] to-[#4b5563]"
+      }`}
+    >
+      <div className="text-4xl">{icon}</div>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-bold">
+            {Math.round(weather.temp_min)}–{Math.round(weather.temp_max)}°C
+          </p>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              weather.is_forecast ? "bg-white/25" : "bg-[#d97706]"
+            }`}
+          >
+            {weather.is_forecast ? "Dự báo" : "Trung bình nhiều năm — tham khảo"}
+          </span>
+        </div>
+        <p className="text-sm text-white/90">
+          {weather.description} · {weather.location}
+        </p>
+        {!weather.is_forecast && (
+          <p className="mt-1 text-xs text-white/75">
+            Tour còn xa ngày, chưa có dự báo chính xác — đây là nhiệt độ trung bình cùng thời điểm các năm trước.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

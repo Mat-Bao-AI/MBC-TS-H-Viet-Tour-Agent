@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { api, EventWeather, TelegramInfo, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { TimelineBuilder } from "@/components/timeline-builder";
 import { TimelineView } from "@/components/timeline-view";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ReviewTourPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const tourId = params.id;
 
   const [tour, setTour] = useState<TourDetail | null>(null);
@@ -93,11 +94,16 @@ export default function ReviewTourPage() {
   return (
     <div className="relative flex flex-col gap-4 pb-16 pt-2">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{tour.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {tour.start_date ? `${tour.start_date} → ${tour.end_date ?? "?"}` : "Chưa xác định ngày"}
-          </p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
+            ←
+          </button>
+          <div>
+            <h1 className="text-xl font-semibold">{tour.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {tour.start_date ? `${tour.start_date} → ${tour.end_date ?? "?"}` : "Chưa xác định ngày"}
+            </p>
+          </div>
         </div>
         <StatusBadge status={tour.status} />
       </div>

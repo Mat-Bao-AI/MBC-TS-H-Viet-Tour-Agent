@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, Guest, TelegramInfo, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { RsvpGuestList } from "@/components/rsvp-guest-list";
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DispatchTourPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const tourId = params.id;
 
   const [loginStatus, setLoginStatus] = useState<ZaloLoginStatus | null>(null);
@@ -110,9 +111,14 @@ export default function DispatchTourPage() {
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      <div>
-        <h1 className="text-xl font-bold">Đoàn khách: {tour?.name ?? "..."}</h1>
-        <p className="text-sm text-muted-foreground">Tổng cộng: {guests?.length ?? 0} khách</p>
+      <div className="flex items-center gap-3">
+        <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
+          ←
+        </button>
+        <div>
+          <h1 className="text-xl font-bold">Đoàn khách: {tour?.name ?? "..."}</h1>
+          <p className="text-sm text-muted-foreground">Tổng cộng: {guests?.length ?? 0} khách</p>
+        </div>
       </div>
 
       {!isLoggedIn && (

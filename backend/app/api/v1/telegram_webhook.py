@@ -11,7 +11,7 @@ GET /api/v1/telegram/info + guest_id, xem Phase 4 UI) -> Telegram tự gửi
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core import dynamic_config
 from app.core.database import get_db
 from app.models.guest import Guest
 from app.services import telegram_service
@@ -26,8 +26,8 @@ async def telegram_webhook(
     db: AsyncSession = Depends(get_db),
     x_telegram_bot_api_secret_token: str | None = Header(default=None),
 ) -> dict:
-    settings = get_settings()
-    if not settings.telegram_configured or x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+    expected_secret = await dynamic_config.get_telegram_webhook_secret()
+    if not await dynamic_config.is_telegram_configured() or x_telegram_bot_api_secret_token != expected_secret:
         raise HTTPException(status_code=401, detail="Sai hoặc thiếu secret token")
 
     update = await request.json()

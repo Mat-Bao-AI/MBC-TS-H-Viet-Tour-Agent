@@ -5,7 +5,7 @@ Telegram tự gọi vào và KHÔNG gửi được JWT)."""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.core.config import get_settings
+from app.core import dynamic_config
 from app.services import telegram_service
 from app.services.telegram_service import TelegramServiceError
 
@@ -29,7 +29,7 @@ class SetupWebhookResponse(BaseModel):
 async def get_telegram_info() -> TelegramInfo:
     """FE dùng để dựng deep-link mời khách (t.me/<bot_username>?start=<guest_id>)
     và biết có nên hiện tuỳ chọn kênh Telegram hay không."""
-    if not get_settings().telegram_configured:
+    if not await dynamic_config.is_telegram_configured():
         return TelegramInfo(configured=False)
     try:
         username = await telegram_service.get_bot_username()

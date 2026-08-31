@@ -1,22 +1,24 @@
 "use client";
 
-// Cài đặt — theo thiết kế Stitch "Cài đặt (Settings)". Không có bảng
-// user/profile riêng (Phase 1 chưa có multi-user auth, xem app/api/v1/auth.py)
-// nên "hồ sơ" ở đây LÀ tài khoản Zalo cá nhân đang kết nối — display_name lấy
-// thật từ zca-js qua GET /auth/zalo/login/status, không phải tên giả định.
+// Cài đặt — theo thiết kế Stitch "Cài đặt (Settings)". Khối "Kết nối Zalo cá
+// nhân" bên dưới là tài khoản Zalo DÙNG ĐỂ GỬI TIN (zca-js), khác tài khoản
+// đăng nhập app thật (Admin/HDV, xem lib/auth.tsx) — 2 khái niệm khác nhau,
+// đừng nhầm "Ngắt kết nối Zalo" ở đây với "Đăng xuất" app (nút đó nằm ở
+// AppChrome, luôn hiện trên mọi trang).
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ZaloLoginStatus } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 const COMING_SOON_ITEMS = [
   { label: "Thông báo", icon: "🔔" },
-  { label: "Bảo mật & API key", icon: "🔒" },
   { label: "Trợ giúp", icon: "❓" },
   { label: "Về ứng dụng", icon: "ℹ️" },
 ];
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<ZaloLoginStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -58,16 +60,18 @@ export default function SettingsPage() {
 
       <h1 className="text-xl font-bold">Cài đặt</h1>
 
-      {/* Hồ sơ — phản chiếu tài khoản Zalo đang kết nối, không có field bịa */}
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-xl">
-          {connected ? "🧑‍💼" : "👤"}
+      {/* Hồ sơ — tài khoản app đang đăng nhập thật (JWT, xem lib/auth.tsx) */}
+      {user && (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-xl">🧑‍💼</div>
+          <div>
+            <p className="font-semibold">{user.full_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {user.email} · {user.role === "admin" ? "Admin" : "Hướng dẫn viên"}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-semibold">{connected ? status?.display_name || "Tài khoản Zalo" : "Chưa kết nối"}</p>
-          <p className="text-xs text-muted-foreground">Hướng dẫn viên</p>
-        </div>
-      </div>
+      )}
 
       {/* Trạng thái kết nối Zalo — dữ liệu thật từ zca-js */}
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
@@ -97,8 +101,28 @@ export default function SettingsPage() {
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
 
-      {/* Các mục chưa triển khai ở Phase 1 — ghi rõ "Sắp có", không giả vờ hoạt động */}
       <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
+        {user?.role === "admin" ? (
+          <Link
+            href="/settings/system"
+            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
+          >
+            <span className="flex items-center gap-3">
+              <span>🔒</span>
+              Cài đặt hệ thống (AI, Telegram)
+            </span>
+            <span className="text-muted-foreground">›</span>
+          </Link>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-3 text-sm opacity-60">
+            <span className="flex items-center gap-3">
+              <span>🔒</span>
+              Cài đặt hệ thống
+            </span>
+            <span className="text-xs text-muted-foreground">Chỉ Admin</span>
+          </div>
+        )}
+        {/* Các mục chưa triển khai — ghi rõ "Sắp có", không giả vờ hoạt động */}
         {COMING_SOON_ITEMS.map((item) => (
           <div key={item.label} className="flex items-center justify-between px-4 py-3 text-sm opacity-60">
             <span className="flex items-center gap-3">
@@ -111,16 +135,13 @@ export default function SettingsPage() {
       </div>
 
       <Button
-        variant="destructive"
+        variant="outline"
         onClick={handleDisconnect}
         disabled={busy || !connected}
-        className="bg-transparent text-destructive hover:bg-destructive/10"
+        className="text-destructive hover:bg-destructive/10"
       >
-        Đăng xuất
+        Ngắt kết nối Zalo
       </Button>
-      <p className="text-center text-xs text-muted-foreground">
-        Phase 1 chưa có tài khoản HDV riêng — "Đăng xuất" hiện ngắt kết nối Zalo cá nhân.
-      </p>
     </div>
   );
 }

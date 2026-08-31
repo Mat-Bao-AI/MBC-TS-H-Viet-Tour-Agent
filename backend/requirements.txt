@@ -41,3 +41,8 @@ httpx==0.27.2
 # Auth app (đăng nhập user thật — app/core/security.py, thay X-API-Key cũ)
 bcrypt==4.2.0
 PyJWT==2.9.0
+
+# Mã hoá config nhạy cảm Admin nhập qua UI, lưu DB (app/core/crypto.py) —
+# trước đây chỉ là dependency bắc cầu qua langchain/httpx, giờ import trực
+# tiếp nên ghim rõ ràng thay vì phụ thuộc ngầm.
+cryptography==50.0.1

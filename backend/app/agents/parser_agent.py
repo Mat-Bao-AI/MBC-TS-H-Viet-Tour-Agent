@@ -25,7 +25,7 @@ sách đoàn riêng) — gộp lại, tránh trùng lặp theo tên+SĐT.
 
 
 async def extract_tour_info(itinerary_text: str, guest_list_text: str | None = None) -> ExtractedTourInfo:
-    structured_llm = get_structured_llm(ExtractedTourInfo, temperature=0.1)
+    structured_llm = await get_structured_llm(ExtractedTourInfo, temperature=0.1)
 
     user_content = f"## Tài liệu lịch trình tour\n{itinerary_text.strip()}"
     if guest_list_text and guest_list_text.strip():
@@ -58,7 +58,7 @@ async def extract_guest_list(text: str) -> list[ExtractedGuest]:
     trình) — dùng cho luồng "Nhập danh sách" bổ sung khách vào tour đã có
     (app/api/v1/tours.py: import_guests), khác với extract_tour_info ở trên
     (bắt buộc phải có tour_name nên không hợp cho trường hợp chỉ có khách)."""
-    structured_llm = get_structured_llm(ExtractedGuestList, temperature=0.1)
+    structured_llm = await get_structured_llm(ExtractedGuestList, temperature=0.1)
 
     result = await structured_llm.ainvoke(
         [

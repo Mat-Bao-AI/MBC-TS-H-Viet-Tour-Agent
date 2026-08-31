@@ -10,6 +10,7 @@ from app.api.v1 import api_router
 from app.api.v1.account import login_router
 from app.api.v1.public import router as public_router
 from app.api.v1.telegram_webhook import router as telegram_webhook_router
+from app.core import dynamic_config
 from app.core.config import get_settings
 from app.core.llm import log_llm_provider_status
 from app.core.seed import seed_admin_if_configured
@@ -21,7 +22,7 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    log_llm_provider_status()  # cảnh báo ngay lúc khởi động nếu ≥2 LLM provider cùng cấu hình
+    await log_llm_provider_status()  # cảnh báo ngay lúc khởi động nếu ≥2 LLM provider cùng cấu hình
     await seed_admin_if_configured()  # tạo Admin đầu tiên nếu SEED_ADMIN_EMAIL được cấu hình
     yield
 
@@ -48,13 +49,14 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict:
-    providers = settings.configured_llm_providers
+    providers = await dynamic_config.configured_llm_providers()
+    primary = await dynamic_config.effective_primary_llm_provider()
     return {
         "status": "ok",
         "environment": settings.environment,
         "llm_providers": {
             "configured": providers,
-            "primary": settings.effective_primary_llm_provider,
+            "primary": primary,
             "fallback_active": len(providers) > 1,
         },
     }

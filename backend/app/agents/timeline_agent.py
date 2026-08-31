@@ -32,7 +32,7 @@ ra được từ start_date/end_date hoặc số điểm đến, không bịa th
 
 
 async def build_timeline(extracted: ExtractedTourInfo) -> list[TimelineEventSchema]:
-    structured_llm = get_structured_llm(TimelineResult, temperature=0.3)
+    structured_llm = await get_structured_llm(TimelineResult, temperature=0.3)
 
     user_content = (
         f"Tên tour: {extracted.tour_name}\n"

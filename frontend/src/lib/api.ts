@@ -135,6 +135,21 @@ export type TelegramInfo = {
   bot_username: string | null;
 };
 
+export type AIProviderStatus = {
+  provider: "gemini" | "azure_openai";
+  label: string;
+  configured: boolean;
+  source: "db" | "env" | "none";
+};
+
+export type SystemSettings = {
+  ai_providers: AIProviderStatus[];
+  llm_primary_provider: string;
+  effective_primary_provider: string | null;
+  telegram_configured: boolean;
+  telegram_source: "db" | "env" | "none";
+};
+
 export type HealthStatus = {
   status: string;
   environment: string;
@@ -303,4 +318,44 @@ export const api = {
   },
 
   getMe: () => request<UserOut>("/auth/me"),
+
+  // Cài đặt hệ thống (AI provider key, Telegram bot) — CHỈ Admin, backend tự
+  // trả 403 cho User thường (xem app/api/v1/admin_settings.py).
+  getSystemSettings: () => request<SystemSettings>("/admin/settings"),
+
+  setGeminiConfig: (apiKey: string) =>
+    request<void>("/admin/settings/ai-providers/gemini", {
+      method: "PUT",
+      body: JSON.stringify({ api_key: apiKey }),
+    }),
+
+  clearGeminiConfig: () => request<void>("/admin/settings/ai-providers/gemini", { method: "DELETE" }),
+
+  setAzureOpenAIConfig: (payload: {
+    endpoint: string;
+    api_key: string;
+    deployment: string;
+    model: string;
+    api_version: string;
+  }) =>
+    request<void>("/admin/settings/ai-providers/azure-openai", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  clearAzureOpenAIConfig: () => request<void>("/admin/settings/ai-providers/azure-openai", { method: "DELETE" }),
+
+  setLlmPrimaryProvider: (provider: string) =>
+    request<void>("/admin/settings/llm-primary-provider", {
+      method: "PUT",
+      body: JSON.stringify({ provider }),
+    }),
+
+  setTelegramConfig: (botToken: string, webhookSecret: string) =>
+    request<void>("/admin/settings/telegram", {
+      method: "PUT",
+      body: JSON.stringify({ bot_token: botToken, webhook_secret: webhookSecret }),
+    }),
+
+  clearTelegramConfig: () => request<void>("/admin/settings/telegram", { method: "DELETE" }),
 };

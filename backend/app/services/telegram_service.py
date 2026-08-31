@@ -5,11 +5,14 @@ như Zalo (zca-js là API không chính thức, Telegram Bot API thì ngược l
 Có 2 biến thể giống zalo_service.py: async (FastAPI endpoints — webhook, info,
 setup) và sync (Celery task — app/tasks/celery_worker.py qua
 notification/telegram_sender.py).
+
+Token/secret đọc qua app/core/dynamic_config.py (ưu tiên Admin đã nhập qua
+UI, fallback .env) — KHÔNG đọc thẳng get_settings() nữa.
 """
 
 import httpx
 
-from app.core.config import get_settings
+from app.core import dynamic_config
 
 _API_BASE = "https://api.telegram.org"
 
@@ -19,14 +22,23 @@ class TelegramServiceError(RuntimeError):
     không hợp lệ, khách đã chặn bot...)."""
 
 
-def _require_token() -> str:
-    token = get_settings().telegram_bot_token
-    if not get_settings().telegram_configured:
-        raise TelegramServiceError(
-            "Chưa cấu hình Telegram (TELEGRAM_BOT_TOKEN/TELEGRAM_WEBHOOK_SECRET trong .env) — "
-            "tạo bot qua @BotFather trước, xem .env.example."
-        )
-    return token
+_NOT_CONFIGURED_MSG = (
+    "Chưa cấu hình Telegram (Bot Token/Webhook Secret) — nhập qua UI Admin "
+    "(Cài đặt hệ thống) hoặc TELEGRAM_BOT_TOKEN/TELEGRAM_WEBHOOK_SECRET trong .env. "
+    "Tạo bot qua @BotFather trước, xem .env.example."
+)
+
+
+async def _require_token() -> str:
+    if not await dynamic_config.is_telegram_configured():
+        raise TelegramServiceError(_NOT_CONFIGURED_MSG)
+    return await dynamic_config.get_telegram_bot_token()
+
+
+def _require_token_sync() -> str:
+    if not dynamic_config.is_telegram_configured_sync():
+        raise TelegramServiceError(_NOT_CONFIGURED_MSG)
+    return dynamic_config.get_telegram_bot_token_sync()
 
 
 def _raise_for_telegram_error(data: dict) -> None:
@@ -40,9 +52,9 @@ def _raise_for_telegram_error(data: dict) -> None:
 async def get_bot_username() -> str | None:
     """None nếu chưa cấu hình token — để FE/endpoint info tự biết mà không
     phải bắt exception cho trường hợp bình thường (chưa setup)."""
-    if not get_settings().telegram_configured:
+    if not await dynamic_config.is_telegram_configured():
         return None
-    token = _require_token()
+    token = await _require_token()
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.get(f"{_API_BASE}/bot{token}/getMe")
     data = response.json()
@@ -51,12 +63,13 @@ async def get_bot_username() -> str | None:
 
 
 async def set_webhook(base_url: str) -> dict:
-    token = _require_token()
+    token = await _require_token()
     webhook_url = f"{base_url.rstrip('/')}/api/v1/telegram/webhook"
+    secret = await dynamic_config.get_telegram_webhook_secret()
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
             f"{_API_BASE}/bot{token}/setWebhook",
-            json={"url": webhook_url, "secret_token": get_settings().telegram_webhook_secret},
+            json={"url": webhook_url, "secret_token": secret},
         )
     data = response.json()
     _raise_for_telegram_error(data)
@@ -64,7 +77,7 @@ async def set_webhook(base_url: str) -> dict:
 
 
 async def send_message(chat_id: str, text: str) -> None:
-    token = _require_token()
+    token = await _require_token()
     async with httpx.AsyncClient(timeout=20) as client:
         response = await client.post(f"{_API_BASE}/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text})
     data = response.json()
@@ -75,7 +88,7 @@ async def send_message(chat_id: str, text: str) -> None:
 
 
 def send_message_sync(chat_id: str, text: str) -> None:
-    token = _require_token()
+    token = _require_token_sync()
     with httpx.Client(timeout=20) as client:
         response = client.post(f"{_API_BASE}/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text})
     data = response.json()

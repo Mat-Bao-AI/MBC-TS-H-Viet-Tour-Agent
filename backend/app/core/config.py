@@ -9,6 +9,15 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def is_configured_value(value: str) -> bool:
+    """Coi là "đã cấu hình thật" nếu khác rỗng và không phải placeholder kiểu
+    your_..._here còn sót lại từ .env.example (rất dễ quên điền). Dùng chung
+    cho cả giá trị từ .env (Settings bên dưới) lẫn giá trị Admin nhập qua UI
+    lưu DB (app/core/dynamic_config.py)."""
+    v = value.strip()
+    return bool(v) and not v.lower().startswith("your_")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -81,29 +90,39 @@ class Settings(BaseSettings):
     # Để trống ở production nghĩa là KHÔNG origin nào gọi được — phải set khi deploy.
     allowed_origin: str = ""
 
+    # Khoá mã hoá config nhạy cảm Admin nhập qua UI, lưu DB (AI provider key,
+    # Telegram bot token — xem app/core/crypto.py, app/core/dynamic_config.py).
+    # BẮT BUỘC đổi giá trị thật khi deploy (Fernet.generate_key(), 44 ký tự
+    # base64) — mất/đổi khoá này = mọi config đã lưu DB không giải mã lại
+    # được nữa (phải nhập lại từ đầu qua UI). Không tránh được chicken-and-egg
+    # (khoá phải nằm ngoài DB), nhưng chặn được rủi ro DB bị lộ riêng (backup,
+    # dump, SQL injection) mà KHÔNG kèm quyền truy cập server đang chạy app.
+    config_encryption_key: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
 
-    @staticmethod
-    def _is_configured(value: str) -> bool:
-        """Coi là "đã cấu hình thật" nếu khác rỗng và không phải placeholder
-        kiểu your_..._here còn sót lại từ .env.example (rất dễ quên điền)."""
-        v = value.strip()
-        return bool(v) and not v.lower().startswith("your_")
+    # ⚠️ Các property *_configured/configured_llm_providers/... dưới đây chỉ
+    # phản ánh giá trị trong .env — kể từ Phase cấu hình DB (2026-08-31),
+    # nguồn THẬT SỰ dùng để gọi AI/Telegram là app/core/dynamic_config.py
+    # (ưu tiên DB, Admin sửa qua UI không cần restart; rơi về các property
+    # này làm fallback nếu Admin chưa cấu hình gì qua UI). KHÔNG dùng trực
+    # tiếp các property này ở nơi cần biết trạng thái THỰC TẾ — luôn qua
+    # dynamic_config.
 
     @property
     def gemini_configured(self) -> bool:
-        return self._is_configured(self.gemini_api_key)
+        return is_configured_value(self.gemini_api_key)
 
     @property
     def telegram_configured(self) -> bool:
-        return self._is_configured(self.telegram_bot_token) and self._is_configured(self.telegram_webhook_secret)
+        return is_configured_value(self.telegram_bot_token) and is_configured_value(self.telegram_webhook_secret)
 
     @property
     def azure_openai_configured(self) -> bool:
         return all(
-            self._is_configured(v)
+            is_configured_value(v)
             for v in (
                 self.azure_openai_endpoint,
                 self.azure_openai_api_key,

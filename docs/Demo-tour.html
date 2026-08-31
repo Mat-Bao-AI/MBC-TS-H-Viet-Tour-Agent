@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<!-- saved from url=(0034)https://congtacdn.vibe.matbao.net/ -->
+<html lang="vi"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Công Tác Đà Nẵng — 29-30/06/2026</title>
+<link href="./Công Tác Đà Nẵng — 29-30_06_2026_files/css2" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f7f6f3;--card:#fff;--text:#1a1a1a;--sub:#6b6b6b;
+  --accent:#1a6b4e;--accent-light:#e8f5ee;--accent-dark:#0f4a34;
+  --sky:#2563eb;--sky-light:#eff6ff;
+  --amber:#d97706;--amber-light:#fef3c7;
+  --red:#dc2626;--red-light:#fef2f2;
+  --border:#e5e5e5;--radius:12px;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.container{max-width:800px;margin:0 auto;padding:16px}
+
+/* HEADER */
+.header{text-align:center;padding:40px 20px 24px;position:relative}
+.header-badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;letter-spacing:.5px;margin-bottom:16px}
+.header h1{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--text);margin-bottom:6px}
+.header .sub{font-size:14px;color:var(--sub)}
+
+/* WEATHER STRIP */
+.weather{background:linear-gradient(135deg,#ff9a56 0%,#ff6b35 100%);color:#fff;border-radius:var(--radius);padding:16px 20px;margin:20px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.weather .icon{font-size:36px}
+.weather-info{flex:1;min-width:180px}
+.weather-info strong{font-size:16px;display:block}
+.weather-info span{font-size:13px;opacity:.9}
+.weather-tags{display:flex;gap:8px;flex-wrap:wrap}
+.weather-tags span{background:rgba(255,255,255,.2);backdrop-filter:blur(4px);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500}
+
+/* TAB NAV */
+.tabs{display:flex;gap:0;background:var(--card);border-radius:var(--radius);overflow-x:auto;margin:24px 0 0;border:1px solid var(--border);-webkit-overflow-scrolling:touch;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.tab-btn{flex:1;min-width:0;padding:14px 8px;font-size:13px;font-weight:600;border:none;background:transparent;cursor:pointer;color:var(--sub);transition:all .2s;white-space:nowrap;position:relative;text-align:center}
+.tab-btn.active{color:var(--accent);background:var(--accent-light)}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--accent);border-radius:3px 3px 0 0}
+.tab-btn:hover:not(.active){background:#fafafa}
+
+/* TAB CONTENT */
+.tab-content{display:none}
+.tab-content.active{display:block;animation:fadeIn .3s ease}
+.tab-content.slide-left{animation:slideInLeft .3s ease}
+.tab-content.slide-right{animation:slideInRight .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:translateX(0)}}
+
+/* SWIPE INDICATORS */
+.swipe-hint{position:fixed;top:50%;z-index:99;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;font-size:22px;font-weight:700;color:var(--text)}
+.swipe-hint.left{left:8px;transform:translateY(-50%) translateX(-14px)}
+.swipe-hint.right{right:8px;transform:translateY(-50%) translateX(14px)}
+.swipe-hint.visible{opacity:1}
+.swipe-hint.visible.left{transform:translateY(-50%) translateX(0)}
+.swipe-hint.visible.right{transform:translateY(-50%) translateX(0)}
+.swipe-hint.peek{opacity:.8;background:rgba(26,107,78,.18);color:var(--accent);box-shadow:0 2px 10px rgba(26,107,78,.2)}
+
+/* SWIPE NAV DOTS */
+.swipe-dots{display:flex;justify-content:center;gap:6px;padding:10px 0;background:var(--bg);position:sticky;top:49px;z-index:99}
+.swipe-dots .dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .3s}
+.swipe-dots .dot.active{background:var(--accent);width:22px;border-radius:4px}
+
+/* CARDS */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:20px;margin-bottom:16px}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.card-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.card-icon.flight{background:var(--sky-light);color:var(--sky)}
+.card-icon.hotel{background:var(--accent-light);color:var(--accent)}
+.card-icon.meet{background:#f5f3ff;color:#7c3aed}
+.card-icon.food{background:#fff7ed;color:#ea580c}
+.card-icon.note{background:var(--amber-light);color:var(--amber)}
+.card-title{font-weight:700;font-size:15px}
+.card-sub{font-size:12px;color:var(--sub);margin-top:2px}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:16px}
+.tl-item:last-child{margin-bottom:0}
+.tl-dot{position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;border:2.5px solid var(--accent);background:var(--card)}
+.tl-item.highlight .tl-dot{background:var(--accent);border-color:var(--accent)}
+.tl-item.sky .tl-dot{border-color:var(--sky)}
+.tl-item.amber .tl-dot{border-color:var(--amber);background:var(--amber)}
+.tl-time{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:2px}
+.tl-title{font-size:14px;font-weight:600;color:var(--text)}
+.tl-desc{font-size:13px;color:var(--sub);margin-top:2px}
+.tl-detail{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 12px;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid rgba(26,107,78,.15);transition:all .2s}
+.tl-detail:hover{background:var(--accent);color:#fff}
+.day-divider{display:flex;align-items:center;gap:12px;margin:8px 0 16px;padding:10px 0}
+.day-divider::before,.day-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.day-divider span{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+
+/* AGENDA TABLE */
+.agenda{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+.agenda th{text-align:left;padding:8px 10px;background:#f9fafb;font-weight:600;font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+.agenda td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+.agenda tr:last-child td{border-bottom:none}
+.agenda .time-col{white-space:nowrap;font-weight:600;color:var(--accent);width:110px}
+.agenda .speaker{display:block;font-size:12px;color:var(--sub);margin-top:3px;font-style:italic}
+
+/* TIPS */
+.tip{display:flex;gap:10px;padding:12px 14px;border-radius:10px;margin-top:10px;font-size:13px}
+.tip.green{background:var(--accent-light);color:var(--accent-dark)}
+.tip.blue{background:var(--sky-light);color:#1e40af}
+.tip.amber{background:var(--amber-light);color:#92400e}
+.tip.red{background:var(--red-light);color:#991b1b}
+.tip-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+
+/* CONTACT BOX */
+.contact-box{background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:12px;font-size:13px}
+.contact-box .label{font-weight:600;color:var(--sub);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+
+/* FOOTER */
+.footer{text-align:center;padding:32px 20px;font-size:12px;color:var(--sub)}
+
+/* STAT CARDS */
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat-card{flex:1;min-width:100px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat-card .stat-val{font-size:24px;font-weight:700;line-height:1.2}
+.stat-card .stat-label{font-size:11px;color:var(--sub);margin-top:4px;text-transform:uppercase;letter-spacing:.3px}
+.stat-card.accent{border-color:var(--accent);background:var(--accent-light)}
+.stat-card.accent .stat-val{color:var(--accent)}
+.stat-card.sky{border-color:var(--sky);background:var(--sky-light)}
+.stat-card.sky .stat-val{color:var(--sky)}
+.stat-card.amber{border-color:var(--amber);background:var(--amber-light)}
+.stat-card.amber .stat-val{color:var(--amber)}
+
+/* BAR CHART */
+.bar-group{margin:12px 0}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-label{width:50px;font-size:12px;font-weight:600;text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:22px;background:#f0f0f0;border-radius:6px;overflow:hidden;display:flex}
+.bar-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;transition:width .5s ease;min-width:0}
+.bar-seg span{white-space:nowrap;overflow:hidden;padding:0 4px}
+.bar-seg.usb{background:#3b82f6}
+.bar-seg.tt{background:#22c55e}
+.bar-seg.mbs{background:#f59e0b}
+.bar-legend{display:flex;gap:14px;justify-content:center;margin:10px 0;font-size:12px}
+.bar-legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.bar-legend .l-usb::before{background:#3b82f6}
+.bar-legend .l-tt::before{background:#22c55e}
+.bar-legend .l-mbs::before{background:#f59e0b}
+
+/* DATA TABLE */
+.dtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.dtable th{background:#f9fafb;padding:8px 6px;font-weight:600;font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border);text-align:center}
+.dtable th:first-child{text-align:left}
+.dtable td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:center}
+.dtable td:first-child{text-align:left;font-weight:600}
+.dtable tr:last-child td{border-bottom:none}
+.dtable .highlight-row{background:var(--accent-light);font-weight:700}
+.dtable .sub-header{background:#f1f5f9;font-weight:600;font-size:11px;color:var(--sub);text-align:center!important}
+
+@media(max-width:600px){
+  .stat-card{min-width:calc(50% - 8px);padding:10px}
+  .stat-card .stat-val{font-size:20px}
+  .bar-label{width:40px;font-size:11px}
+  .dtable{font-size:11px}
+  .dtable th,.dtable td{padding:6px 4px}
+}
+
+/* CHECKLIST */
+.checklist{list-style:none;margin-top:10px}
+.checklist li{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;align-items:flex-start;gap:8px}
+.checklist li:last-child{border-bottom:none}
+.checklist .ck{flex-shrink:0;margin-top:2px}
+
+/* INFO ROW */
+.info-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.info-item{flex:1;min-width:140px;background:#f9fafb;border-radius:8px;padding:10px 12px}
+.info-item .label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px}
+.info-item .value{font-size:14px;font-weight:600}
+
+@media(max-width:600px){
+  .container{padding:10px}
+  .header{padding:28px 12px 18px}
+  .header h1{font-size:20px;line-height:1.3}
+  .header .sub{font-size:12px}
+  .weather{padding:14px 16px;gap:10px;flex-direction:column;align-items:flex-start}
+  .weather .icon{font-size:28px}
+  .weather-info strong{font-size:14px}
+  .weather-tags{width:100%}
+  .tabs{border-radius:10px;margin:16px 0 0}
+  .tab-btn{font-size:11px;padding:12px 4px;letter-spacing:-.2px}
+  .swipe-dots{top:41px;padding:8px 0}
+  .card{padding:14px;margin-bottom:12px;border-radius:10px}
+  .card-header{gap:8px;margin-bottom:10px;padding-bottom:10px}
+  .card-icon{width:34px;height:34px;font-size:17px;border-radius:8px}
+  .card-title{font-size:13px;line-height:1.4}
+  .card-sub{font-size:11px}
+  .timeline{padding-left:24px}
+  .tl-dot{left:-20px;width:10px;height:10px}
+  .tl-time{font-size:11px}
+  .tl-title{font-size:13px}
+  .tl-desc{font-size:12px}
+  .tl-detail{font-size:11px;padding:4px 10px}
+  .agenda{font-size:12px}
+  .agenda td,.agenda th{padding:8px 6px;font-size:12px}
+  .agenda .time-col{width:70px;font-size:11px}
+  .agenda .speaker{font-size:11px}
+  .info-row{gap:8px}
+  .info-item{min-width:100%;padding:8px 10px}
+  .info-item .label{font-size:10px}
+  .info-item .value{font-size:13px}
+  .tip{padding:10px 12px;font-size:12px;gap:8px}
+  .checklist li{font-size:12px;padding:7px 0}
+  .contact-box{padding:10px 12px;font-size:12px}
+  table[style*="font-size:13px"] td{font-size:12px!important;padding:8px 4px!important}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-badge">📋 BRIEFING CÔNG TÁC</div>
+  <h1>Đà Nẵng — Hội thảo Chữ ký số</h1>
+  <div class="sub">Thứ Hai 29/06 → Thứ Ba 30/06/2026 &nbsp;·&nbsp; 2 ngày 1 đêm</div>
+</div>
+
+<!-- WEATHER -->
+<div class="weather">
+  <div class="icon">🌤️</div>
+  <div class="weather-info">
+    <strong>Thời tiết Đà Nẵng 29-30/06</strong>
+    <span>Nắng nóng gay gắt, nhiệt độ 33–39°C. Độ ẩm 75–90%. Có thể mưa rào chiều tối.</span>
+  </div>
+  <div class="weather-tags">
+    <span>☀️ Nắng gắt</span>
+    <span>💧 Ẩm cao</span>
+    <span>🌡️ ~35°C</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab(&#39;overview&#39;)">🗓️ Lịch trình</button>
+  <button class="tab-btn" onclick="showTab(&#39;meet1&#39;)">📌 Chiều T2</button>
+  <button class="tab-btn" onclick="showTab(&#39;meet2&#39;)">📌 Sáng T3</button>
+  <button class="tab-btn" onclick="showTab(&#39;meet3&#39;)">📌 Chiều T3</button>
+  <button class="tab-btn" onclick="showTab(&#39;data&#39;)">📊 Số liệu</button>
+</div>
+<div class="swipe-dots" id="swipeDots">
+  <div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+</div>
+
+<!-- Swipe arrow hints -->
+<div class="swipe-hint left" id="swipeLeft">‹</div>
+<div class="swipe-hint right" id="swipeRight">›</div>
+
+<!-- ==================== TAB 1: OVERVIEW ==================== -->
+<div class="tab-content slide-right active" id="tab-overview">
+
+  <!-- FLIGHT -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon flight">✈️</div>
+      <div><div class="card-title">Vé máy bay — Vietnam Airlines</div><div class="card-sub">Booking: EEQ8OU · Hành khách: Đinh Huy Thành &amp; Huỳnh Ngọc Duy</div></div>
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tbody><tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 0;font-weight:600;color:var(--sky)">VN126 ✈️ Đi</td>
+        <td style="padding:10px 0">SGN → DAD</td>
+        <td style="padding:10px 0;text-align:right"><b>T2, 29/06</b><br><span style="color:var(--sub)">11:00 → 12:20</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;font-weight:600;color:var(--accent)">VN143 ✈️ Về</td>
+        <td style="padding:10px 0">DAD → SGN</td>
+        <td style="padding:10px 0;text-align:right"><b>T3, 30/06</b><br><span style="color:var(--sub)">21:05 → 22:40</span></td>
+      </tr>
+    </tbody></table>
+    <div class="tip blue">
+      <span class="tip-icon">💡</span>
+      <span>Hành lý: mỗi người 1 kiện ký gửi (1PC). Không có suất ăn trên máy bay — nên ăn trước hoặc mang theo đồ ăn nhẹ.</span>
+    </div>
+  </div>
+
+  <!-- HOTEL -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon hotel">🏨</div>
+      <div><div class="card-title">Tru by Hilton Da Nang City Centre</div><div class="card-sub">15 Lê Duẩn, Hải Châu I, Hải Châu, Đà Nẵng · ĐT: 0236 3622 999</div></div>
+    </div>
+    <div class="info-row">
+      <div class="info-item"><div class="label">Booking</div><div class="value">#974000</div></div>
+      <div class="info-item"><div class="label">Phòng</div><div class="value">King Bed · 1 đêm</div></div>
+      <div class="info-item"><div class="label">Check-in</div><div class="value" style="color:var(--accent)">15:00, 29/06</div></div>
+      <div class="info-item"><div class="label">Check-out</div><div class="value" style="color:var(--red)">12:00, 30/06</div></div>
+    </div>
+    <div class="tip green">
+      <span class="tip-icon">✅</span>
+      <span>Đã bao gồm VAT + bữa sáng. Không hoàn/hủy. Tên đặt phòng: Đinh Huy Thành. Gotadi Hotline: 0386.991.207</span>
+    </div>
+    <div class="tip amber">
+      <span class="tip-icon">📦</span>
+      <span>Check-out lúc 12:00 trưa T3 — gửi hành lý tại reception để đi họp chiều, tối ra sân bay.</span>
+    </div>
+  </div>
+
+  <!-- DAY 1 TIMELINE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📅</div>
+      <div><div class="card-title">Ngày 1 — Thứ Hai, 29/06/2026</div><div class="card-sub">Bay đi · Họp chiều · Networking tối</div></div>
+    </div>
+    <div class="timeline">
+      <div class="tl-item sky">
+        <div class="tl-dot"></div>
+        <div class="tl-time">09:00</div>
+        <div class="tl-title">Đến sân bay Tân Sơn Nhất (Terminal 3)</div>
+        <div class="tl-desc">Có mặt trước 2 tiếng. Mang CCCD/CMND.</div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-dot"></div>
+        <div class="tl-time">11:00 → 12:20</div>
+        <div class="tl-title">✈️ Bay VN126: SGN → DAD</div>
+        <div class="tl-desc">Airbus A321 · Economy (B) · 1h20p</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">12:30 – 13:15</div>
+        <div class="tl-title">🍜 Ăn trưa</div>
+        <div class="tl-desc">Di chuyển từ sân bay về trung tâm (~20 phút). Ăn trưa gần KS.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">13:15 – 13:30</div>
+        <div class="tl-title">🏨 Gửi hành lý tại Tru by Hilton</div>
+        <div class="tl-desc">Chưa đến giờ check-in (15:00), gửi đồ tại reception.</div>
+      </div>
+      <div class="tl-item highlight" id="ref-meet1">
+        <div class="tl-dot"></div>
+        <div class="tl-time">13:30 – 17:00</div>
+        <div class="tl-title">📌 HỘI THẢO: Chữ ký số &amp; Dịch vụ tin cậy miền Trung, Tây Nguyên</div>
+        <div class="tl-desc">CV Phần mềm ĐN, 02 Quang Trung — cách KS 800m (đi bộ ~10 phút).</div>
+        <div class="tl-detail" onclick="showTabById(&#39;meet1&#39;)">Xem chương trình &amp; gợi ý →</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">17:00 – 18:30</div>
+        <div class="tl-title">🏨 Check-in · Nghỉ ngơi · Thay đồ</div>
+        <div class="tl-desc">Check-in chính thức từ 15:00 — nhờ nhân viên check-in trước nếu phòng sẵn.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">18:30 – 21:00</div>
+        <div class="tl-title">🍽️ Ăn tối &amp; giao lưu với các nhà CA</div>
+        <div class="tl-desc">Networking với đại diện các CA công cộng và Sở KH&amp;CN.</div>
+      </div>
+    </div>
+    <div class="tip green">
+      <span class="tip-icon">👔</span>
+      <span><b>Trang phục:</b> Sơ mi dài tay / áo vest nhẹ cho buổi họp. Tối giao lưu có thể lịch sự casual. Mang thêm áo khoác mỏng vì phòng họp lạnh.</span>
+    </div>
+  </div>
+
+  <!-- DAY 2 MORNING -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📅</div>
+      <div><div class="card-title">Ngày 2 · Sáng — Thứ Ba, 30/06/2026</div><div class="card-sub">Ăn sáng · Họp Giao ban CA · Check-out</div></div>
+    </div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">07:00 – 07:45</div>
+        <div class="tl-title">🥐 Ăn sáng tại KS (buffet đã bao gồm)</div>
+        <div class="tl-desc">Chuẩn bị tài liệu. Xếp đồ sẵn để check-out nhanh lúc trưa.</div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-dot"></div>
+        <div class="tl-time">08:00 – 08:30</div>
+        <div class="tl-title">🚕 Di chuyển đến KS Biển Vàng</div>
+        <div class="tl-desc">155 Phạm Văn Đồng, An Hải — cách KS 1,8 km (~8 phút taxi).</div>
+      </div>
+      <div class="tl-item highlight" id="ref-meet2">
+        <div class="tl-dot"></div>
+        <div class="tl-time">08:30 – 12:00</div>
+        <div class="tl-title">📌 HỘI NGHỊ: Giao ban Quý II/2026 — CA công cộng</div>
+        <div class="tl-desc">Hội trường tầng 3, KS Biển Vàng. NEAC chủ trì, có A03 &amp; Bộ Tài chính.</div>
+        <div class="tl-detail" onclick="showTabById(&#39;meet2&#39;)">Xem chương trình &amp; gợi ý →</div>
+      </div>
+      <div class="tl-item amber">
+        <div class="tl-dot"></div>
+        <div class="tl-time">12:00</div>
+        <div class="tl-title">🏨 Về KS Tru — Check-out · Gửi hành lý</div>
+        <div class="tl-desc">Trả phòng đúng 12:00. Gửi hành lý tại reception.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DAY 2 AFTERNOON -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📅</div>
+      <div><div class="card-title">Ngày 2 · Chiều — Thứ Ba, 30/06/2026</div><div class="card-sub">Ăn trưa · Họp TCVN · Bay về SGN</div></div>
+    </div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">12:00 – 13:30</div>
+        <div class="tl-title">🍜 Ăn trưa</div>
+        <div class="tl-desc">Ăn gần KS hoặc khu vực An Hải trước khi họp chiều.</div>
+      </div>
+      <div class="tl-item highlight" id="ref-meet3">
+        <div class="tl-dot"></div>
+        <div class="tl-time">14:00 – 17:00</div>
+        <div class="tl-title">📌 HỘI THẢO: Dự thảo TCVN — Giao thức chữ ký số &amp; Dấu thời gian</div>
+        <div class="tl-desc">Hội trường tầng 3, KS Biển Vàng, 155 Phạm Văn Đồng — cách KS Tru 2,2 km.</div>
+        <div class="tl-detail" onclick="showTabById(&#39;meet3&#39;)">Xem 8 dự thảo &amp; gợi ý →</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">17:00 – 18:00</div>
+        <div class="tl-title">🍽️ Ăn tối nhẹ · Lấy hành lý tại KS Tru</div>
+        <div class="tl-desc">Về KS lấy hành lý → ăn nhanh → ra sân bay.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-time">19:00 – 19:30</div>
+        <div class="tl-title">🚕 Di chuyển ra sân bay Đà Nẵng</div>
+        <div class="tl-desc">Sân bay cách KS Tru ~3 km (~10 phút). Có mặt trước 1.5–2 tiếng.</div>
+      </div>
+      <div class="tl-item highlight">
+        <div class="tl-dot"></div>
+        <div class="tl-time">21:05 → 22:40</div>
+        <div class="tl-title">✈️ Bay VN143: DAD → SGN</div>
+        <div class="tl-desc">Airbus A320 · Economy (N) · 1h35p</div>
+      </div>
+    </div>
+    <div class="tip amber">
+      <span class="tip-icon">⏰</span>
+      <span>Ngày 2 rất kín lịch: 2 cuộc họp + checkout + bay về. Nên xếp đồ sẵn từ sáng sớm để checkout nhanh lúc trưa.</span>
+    </div>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon note">📝</div>
+      <div><div class="card-title">Checklist chuẩn bị</div><div class="card-sub">Những việc cần lưu ý trước chuyến đi</div></div>
+    </div>
+    <ul class="checklist">
+      <li><span class="ck">☐</span> CCCD/CMND cho cả 2 người (bắt buộc khi bay nội địa)</li>
+      <li><span class="ck">☐</span> In sẵn vé máy bay (hoặc lưu điện tử) — Booking: EEQ8OU</li>
+      <li><span class="ck">☐</span> In voucher KS (Booking #974000) — check-in nhanh cho sếp</li>
+      <li><span class="ck">☐</span> Name card công ty — giao lưu với đại diện CA, Sở KH&amp;CN, NEAC</li>
+      <li><span class="ck">☐</span> Laptop + sạc — theo dõi tài liệu họp, demo Mắt Bão Sign nếu cần</li>
+      <li><span class="ck">☐</span> Tài liệu/số liệu Mắt Bão CA — phần thảo luận sáng T3 có thể cần báo cáo</li>
+      <li><span class="ck">☐</span> Kem chống nắng + nước uống — ĐN đang nắng gắt 35–39°C</li>
+      <li><span class="ck">☐</span> Ô/dù gấp gọn — phòng mưa rào chiều tối</li>
+      <li><span class="ck">☐</span> Áo khoác nhẹ — phòng họp thường bật máy lạnh mạnh</li>
+      <li><span class="ck">☐</span> Sạc dự phòng — di chuyển nhiều trong ngày</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: CHIỀU T2 ==================== -->
+<div class="tab-content" id="tab-meet1">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📌</div>
+      <div>
+        <div class="card-title">Hội thảo phát triển Chữ ký số &amp; Dịch vụ tin cậy<br>tại khu vực Miền Trung, Tây Nguyên</div>
+        <div class="card-sub">Thứ Hai, 29/06/2026 · 14:00 – 17:00</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-item"><div class="label">📍 Địa điểm</div><div class="value" style="font-size:13px">Hội trường T3, Toà nhà CV Phần mềm ĐN<br><span style="font-weight:400;color:var(--sub)">02 Quang Trung, Hải Châu — cách KS 800m</span></div></div>
+    </div>
+    <div class="info-row">
+      <div class="info-item"><div class="label">🏛️ Tổ chức</div><div class="value" style="font-size:13px">NEAC phối hợp Sở KH&amp;CN TP Đà Nẵng</div></div>
+      <div class="info-item"><div class="label">📝 Giấy mời</div><div class="value" style="font-size:13px">Số /GM-NEAC · GĐ Tô Thị Thu Hương ký</div></div>
+    </div>
+
+    <div style="font-size:13px;color:var(--sub);margin-bottom:8px"><b style="color:var(--text)">Thành phần tham dự:</b> NEAC, Sở KH&amp;CN ĐN, đại diện các Sở ban ngành &amp; đơn vị hành chính cấp phường/xã, Tổ Công nghệ số cộng đồng ĐN, Sở KH&amp;CN khu vực miền Trung – Tây Nguyên, các tổ chức cung cấp dịch vụ tin cậy.</div>
+
+    <table class="agenda">
+      <thead><tr><th>Thời gian</th><th>Nội dung</th></tr></thead>
+      <tbody>
+        <tr><td class="time-col">13:30 – 14:00</td><td>Đăng ký đại biểu · Cấp chứng thư chữ ký số miễn phí cho đại biểu</td></tr>
+        <tr><td class="time-col">14:00 – 14:10</td><td>Tuyên bố lý do, giới thiệu đại biểu</td></tr>
+        <tr><td class="time-col">14:10 – 14:20</td><td>Phát biểu khai mạc<span class="speaker">Lãnh đạo Trung tâm Chứng thực điện tử quốc gia</span></td></tr>
+        <tr><td class="time-col">14:20 – 14:30</td><td>Phát biểu chào mừng<span class="speaker">Lãnh đạo Sở KH&amp;CN TP Đà Nẵng</span></td></tr>
+        <tr><td class="time-col">14:30 – 15:00</td><td>Tổng quan về chữ ký số và dịch vụ tin cậy<span class="speaker">Đại diện NEAC</span></td></tr>
+        <tr><td class="time-col">15:00 – 15:20</td><td>Giải pháp triển khai ký số toàn dân trên địa bàn TP Đà Nẵng<span class="speaker">Sở KH&amp;CN TP Đà Nẵng</span></td></tr>
+        <tr style="background:var(--accent-light)"><td class="time-col">15:20 – 15:35</td><td>☕ Giải lao · Cấp chứng thư số miễn phí</td></tr>
+        <tr><td class="time-col">15:35 – 16:00</td><td>Một số nền tảng ứng dụng chữ ký số trong các lĩnh vực<span class="speaker">Đại diện Cộng đồng CA công cộng</span></td></tr>
+        <tr><td class="time-col">16:00 – 16:20</td><td>Khó khăn trong thúc đẩy, phát triển và ứng dụng chữ ký số tại TP Huế<span class="speaker">Sở KH&amp;CN TP Huế</span></td></tr>
+        <tr><td class="time-col">16:20 – 16:50</td><td>Trao đổi thảo luận<span class="speaker">NEAC &amp; Sở KH&amp;CN ĐN đồng chủ trì</span></td></tr>
+        <tr><td class="time-col">16:50 – 17:00</td><td>Phát biểu tổng kết · Bế mạc Hội thảo<span class="speaker">Lãnh đạo NEAC</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="contact-box">
+      <div class="label">Liên hệ BTC</div>
+      Bà <b>Trần Hoài Chi</b> — Chi nhánh NEAC tại ĐN · ĐT: <b>0905 523 638</b>
+    </div>
+
+    <div class="tip green" style="margin-top:16px">
+      <span class="tip-icon">💡</span>
+      <div>
+        <b>Gợi ý:</b><br>
+        • Phần 15:35 "Cộng đồng CA công cộng" — Mắt Bão là thành viên, có thể được mời chia sẻ hoặc nên chuẩn bị ý kiến đóng góp.<br>
+        • Phần giải pháp ĐN (15:00) → nắm mô hình triển khai tại địa phương, cơ hội hợp tác cho <b>Mắt Bão Sign</b>.<br>
+        • Phần TP Huế (16:00) → hiểu pain points để định vị giải pháp cho thị trường miền Trung.<br>
+        • Giờ giải lao &amp; đăng ký đầu giờ: cơ hội networking với lãnh đạo Sở &amp; NEAC.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 3: SÁNG T3 ==================== -->
+<div class="tab-content" id="tab-meet2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📌</div>
+      <div>
+        <div class="card-title">Hội nghị Giao ban Quý II/2026<br>với các tổ chức cung cấp dịch vụ tin cậy</div>
+        <div class="card-sub">Thứ Ba, 30/06/2026 · 08:30</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-item"><div class="label">📍 Địa điểm</div><div class="value" style="font-size:13px">Hội trường T3, KS Biển Vàng<br><span style="font-weight:400;color:var(--sub)">155 Phạm Văn Đồng, An Hải — cách KS 1,8 km</span></div></div>
+    </div>
+    <div class="info-row">
+      <div class="info-item"><div class="label">🏛️ Tổ chức</div><div class="value" style="font-size:13px">NEAC · GĐ Tô Thị Thu Hương ký</div></div>
+      <div class="info-item"><div class="label">📝 Giấy mời</div><div class="value" style="font-size:13px">Số /GM-NEAC ngày 19/6/2026</div></div>
+    </div>
+
+    <div style="font-size:13px;color:var(--sub);margin-bottom:8px"><b style="color:var(--text)">Thành phần tham dự:</b> Lãnh đạo NEAC, đại diện các đơn vị thuộc Bộ KH&amp;CN, Cục An ninh chính trị nội bộ - Bộ Công an (A03), Cục Quản lý giám sát chính sách thuế phí - Bộ Tài chính, lãnh đạo các CA công cộng, đại diện bên ứng dụng: <b>chứng khoán, hải quan, thuế, ngân hàng</b>.</div>
+
+    <table class="agenda">
+      <thead><tr><th style="width:40px">STT</th><th>Nội dung</th></tr></thead>
+      <tbody>
+        <tr><td class="time-col">1</td><td>Đăng ký đại biểu</td></tr>
+        <tr><td class="time-col">2</td><td>Tuyên bố lý do, giới thiệu đại biểu</td></tr>
+        <tr><td class="time-col">3</td><td>Phát biểu khai mạc<span class="speaker">Lãnh đạo NEAC</span></td></tr>
+        <tr><td class="time-col">4</td><td>Bảo vệ chính trị nội bộ và an ninh thông tin trong hoạt động kinh doanh dịch vụ tin cậy<span class="speaker">Đại diện Cục An ninh chính trị nội bộ (A03) — Bộ Công an</span></td></tr>
+        <tr><td class="time-col">5</td><td>Quy định kê khai, thu nộp phí duy trì hệ thống kiểm tra trạng thái chứng thư chữ ký số và xử phạt trong lĩnh vực phí, lệ phí<span class="speaker">Đại diện Cục Quản lý, giám sát chính sách thuế, phí và lệ phí — Bộ Tài chính</span></td></tr>
+        <tr><td class="time-col">6</td><td>Hoàn thiện hành lang pháp lý, chuẩn hóa quy trình nghiệp vụ và nâng cao năng lực vận hành hệ thống hạ tầng cung cấp dịch vụ tin cậy<span class="speaker">Đại diện NEAC</span></td></tr>
+        <tr><td class="time-col">7</td><td>Trao đổi thảo luận<span class="speaker">Lãnh đạo NEAC chủ trì</span><br><span class="speaker" style="font-style:normal;color:var(--text)">• Các CA công cộng báo cáo tình hình cung cấp dịch vụ, khó khăn vướng mắc và kiến nghị<br>• NEAC &amp; các đơn vị thuộc Bộ và khách mời giải đáp thắc mắc</span></td></tr>
+        <tr><td class="time-col">8</td><td>Phát biểu tổng kết Hội nghị<span class="speaker">Lãnh đạo NEAC</span></td></tr>
+        <tr><td class="time-col">9</td><td>Bế mạc Hội nghị</td></tr>
+      </tbody>
+    </table>
+
+    <div class="contact-box">
+      <div class="label">Liên hệ BTC</div>
+      Ông <b>Trần Quyết Định</b> — Chuyên viên Phòng HC-TH, NEAC · ĐT: <b>0942 728 555</b>
+    </div>
+
+    <div class="tip red" style="margin-top:16px">
+      <span class="tip-icon">🔒</span>
+      <div>
+        <b>Lưu ý quan trọng:</b><br>
+        • Phần trình bày của <b>A03 (Cục ANCTNB, Bộ Công an)</b> — nội dung nhạy cảm về an ninh chính trị nội bộ. Không ghi âm/chụp ảnh trừ khi được cho phép.<br>
+        • Phần <b>phí duy trì hệ thống</b> (Bộ Tài chính) — ảnh hưởng trực tiếp đến chi phí vận hành CA Mắt Bão. Ghi chép kỹ các mức phí và quy định xử phạt mới.
+      </div>
+    </div>
+    <div class="tip green">
+      <span class="tip-icon">💡</span>
+      <div>
+        <b>Gợi ý:</b><br>
+        • Phần 6 về hoàn thiện pháp lý &amp; nâng cao hạ tầng → cập nhật yêu cầu mới từ NEAC để điều chỉnh hệ thống Mắt Bão CA nếu cần.<br>
+        • Phần thảo luận (7) — CA công cộng được yêu cầu <b>báo cáo tình hình</b>: chuẩn bị số liệu chứng thư đã cấp, tỷ lệ sử dụng, khó khăn thực tế.<br>
+        • Có đại diện <b>chứng khoán, hải quan, thuế, ngân hàng</b> — cơ hội networking mở rộng ứng dụng ký số.<br>
+        • Buổi họp này <b>báo cáo Thứ trưởng Bùi Hoàng Phương</b> — tính chất quan trọng, cần chuẩn bị kỹ.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 4: CHIỀU T3 ==================== -->
+<div class="tab-content" id="tab-meet3">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon meet">📌</div>
+      <div>
+        <div class="card-title">Hội thảo khoa học: Yêu cầu giao thức tạo<br>chữ ký số và cấp dấu thời gian</div>
+        <div class="card-sub">Thứ Ba, 30/06/2026 · 14:00</div>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-item"><div class="label">📍 Địa điểm</div><div class="value" style="font-size:13px">Hội trường T3, KS Biển Vàng<br><span style="font-weight:400;color:var(--sub)">155 Phạm Văn Đồng, An Hải — cách KS Tru 2,2 km</span></div></div>
+    </div>
+    <div class="info-row">
+      <div class="info-item"><div class="label">🏛️ Tổ chức</div><div class="value" style="font-size:13px">NEAC · PGĐ Đinh Quang Trung ký</div></div>
+      <div class="info-item"><div class="label">📝 Căn cứ</div><div class="value" style="font-size:13px">QĐ 4466/QĐ-BKHCN ngày 27/12/2025</div></div>
+    </div>
+
+    <div style="font-size:13px;color:var(--sub);margin-bottom:8px"><b style="color:var(--text)">Mục đích:</b> Xin ý kiến góp ý 8 dự thảo Tiêu chuẩn Quốc gia (TCVN) thuộc lĩnh vực Giao dịch điện tử năm 2026, theo Kế hoạch xây dựng tiêu chuẩn quốc gia của Bộ KH&amp;CN.</div>
+
+    <h4 style="font-size:14px;margin:16px 0 10px;color:var(--accent)">📋 8 dự thảo TCVN xin ý kiến</h4>
+    <table class="agenda">
+      <thead><tr><th style="width:40px">#</th><th>Nội dung dự thảo TCVN — Giao dịch điện tử</th></tr></thead>
+      <tbody>
+        <tr><td class="time-col">1</td><td>Yêu cầu vận hành và kiểm soát đối với tổ chức cung cấp dịch vụ chứng thực chữ ký số công cộng</td></tr>
+        <tr><td class="time-col">2</td><td>Yêu cầu về dịch vụ chứng thực thông điệp dữ liệu</td></tr>
+        <tr><td class="time-col">3</td><td>Yêu cầu về ký số trên thông điệp dữ liệu để lưu trữ dài hạn</td></tr>
+        <tr><td class="time-col">4</td><td>Yêu cầu về chức năng, nghiệp vụ cho mô hình ký số trên thiết bị di động (Mobile PKI)</td></tr>
+        <tr><td class="time-col">5</td><td>Yêu cầu về thông số kỹ thuật chuyển vùng cho Mobile PKI</td></tr>
+        <tr><td class="time-col">6</td><td>Giao thức cấp dấu thời gian cho dịch vụ tin cậy</td></tr>
+        <tr><td class="time-col">7</td><td>Yêu cầu về giao diện dịch vụ Web cho Mobile PKI</td></tr>
+        <tr><td class="time-col">8</td><td>Yêu cầu về khung bảo mật cho Mobile PKI</td></tr>
+      </tbody>
+    </table>
+
+    <div class="contact-box">
+      <div class="label">Liên hệ BTC</div>
+      Bà <b>Trần Hoài Chi</b> · ĐT: <b>0905 523 638</b> · Email: thchi@mst.gov.vn
+    </div>
+
+    <div class="tip green" style="margin-top:16px">
+      <span class="tip-icon">💡</span>
+      <div>
+        <b>Gợi ý:</b><br>
+        • <b>Dự thảo #1</b> ảnh hưởng trực tiếp đến vận hành CA Mắt Bão — cần rà soát kỹ yêu cầu kiểm soát mới để đánh giá gap hiện tại.<br>
+        • <b>Dự thảo #4, 5, 7, 8</b> (nhóm Mobile PKI) — rất liên quan đến <b>Mắt Bão Sign</b> vừa ra mắt 05/05/2026. Đây là cơ hội góp ý từ kinh nghiệm triển khai thực tế.<br>
+        • <b>Dự thảo #6</b> (Dấu thời gian) — nếu Mắt Bão có dịch vụ timestamp, cần theo dõi sát giao thức mới.<br>
+        • <b>Dự thảo #3</b> (Lưu trữ dài hạn) — liên quan đến Hóa đơn điện tử và hợp đồng điện tử đang triển khai.<br>
+        • Tài liệu chi tiết các dự thảo: quét <b>mã QR</b> trong giấy mời gốc.
+      </div>
+    </div>
+    <div class="tip amber">
+      <span class="tip-icon">⏰</span>
+      <div>
+        <b>Lưu ý thời gian:</b> Họp kết thúc dự kiến ~17:00. Chuyến bay về lúc 21:05 — còn ~4 tiếng buffer. Cần về KS Tru lấy hành lý → ra sân bay ĐN (~3 km, 10 phút).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 5: SỐ LIỆU CKS ==================== -->
+<div class="tab-content" id="tab-data">
+
+  <!-- TỔNG QUAN -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background:#ede9fe;color:#7c3aed">📊</div>
+      <div>
+        <div class="card-title">Thống kê Chứng thư số Mắt Bão</div>
+        <div class="card-sub">Dữ liệu cập nhật ngày 29/06/2026</div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card accent">
+        <div class="stat-val">4.477</div>
+        <div class="stat-label">Tổng đang hoạt động</div>
+      </div>
+      <div class="stat-card sky">
+        <div class="stat-val">2.333</div>
+        <div class="stat-label">USB Token</div>
+      </div>
+      <div class="stat-card" style="border-color:#22c55e;background:#f0fdf4">
+        <div class="stat-val" style="color:#16a34a">1.909</div>
+        <div class="stat-label">Tập trung</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-val">235</div>
+        <div class="stat-label">Mắt Bão Sign</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BIỂU ĐỒ CẤP MỚI -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background:#dbeafe;color:#2563eb">📈</div>
+      <div>
+        <div class="card-title">Cấp mới theo năm</div>
+        <div class="card-sub">Tổng hợp 3 loại hình: USB Token · Tập trung · Mắt Bão Sign</div>
+      </div>
+    </div>
+
+    <div class="bar-legend">
+      <span class="l-usb">USB Token</span>
+      <span class="l-tt">Tập trung</span>
+      <span class="l-mbs">Mắt Bão Sign</span>
+    </div>
+
+    <div class="bar-group">
+      <div class="bar-row">
+        <div class="bar-label">2023</div>
+        <div class="bar-track" style="max-width:20%">
+          <div class="bar-seg usb" style="width:73.7%"><span>383</span></div>
+          <div class="bar-seg tt" style="width:26.3%"><span>137</span></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--sub);min-width:45px">520</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">2024</div>
+        <div class="bar-track" style="max-width:47%">
+          <div class="bar-seg usb" style="width:63.2%"><span>761</span></div>
+          <div class="bar-seg tt" style="width:36.8%"><span>443</span></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--sub);min-width:45px">1.204</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">2025</div>
+        <div class="bar-track" style="max-width:100%">
+          <div class="bar-seg usb" style="width:46.4%"><span>1.196</span></div>
+          <div class="bar-seg tt" style="width:41.4%"><span>1.068</span></div>
+          <div class="bar-seg mbs" style="width:12.2%"><span>313</span></div>
+        </div>
+        <span style="font-size:12px;font-weight:700;color:var(--accent);min-width:45px">2.577</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">2026</div>
+        <div class="bar-track" style="max-width:86%">
+          <div class="bar-seg usb" style="width:43.6%"><span>963</span></div>
+          <div class="bar-seg tt" style="width:52%"><span>1.147</span></div>
+          <div class="bar-seg mbs" style="width:4.4%"><span></span></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--sub);min-width:45px">2.207</span>
+      </div>
+    </div>
+
+    <div class="tip green">
+      <span class="tip-icon">📌</span>
+      <div>
+        <b>Điểm nổi bật:</b><br>
+        • <b>Tập trung</b> vượt USB Token lần đầu tiên trong năm 2026 (1.147 vs 963) — xu hướng chuyển dịch rõ rệt.<br>
+        • <b>Mắt Bão Sign</b> ra mắt 05/05/2026, mới 2 tháng đã có 97 chứng thư cấp mới. Năm 2025 đạt 313.<br>
+        • Tổng cấp mới 2026 đạt 2.207 (tính đến 29/6) — đã bằng 86% cả năm 2025.
+      </div>
+    </div>
+  </div>
+
+  <!-- BẢNG CHI TIẾT CẤP MỚI -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon note">📋</div>
+      <div>
+        <div class="card-title">Chi tiết cấp mới theo đối tượng</div>
+        <div class="card-sub">Doanh nghiệp · Cá nhân · Nhân viên</div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table class="dtable">
+      <thead>
+        <tr>
+          <th rowspan="2">Năm</th>
+          <th colspan="3" style="border-left:2px solid var(--border)">USB Token</th>
+          <th colspan="3" style="border-left:2px solid var(--border)">Tập trung</th>
+          <th colspan="3" style="border-left:2px solid var(--border)">Mắt Bão Sign</th>
+        </tr>
+        <tr>
+          <td class="sub-header" style="border-left:2px solid var(--border)">DN</td><td class="sub-header">CN</td><td class="sub-header">NV</td>
+          <td class="sub-header" style="border-left:2px solid var(--border)">DN</td><td class="sub-header">CN</td><td class="sub-header">NV</td>
+          <td class="sub-header" style="border-left:2px solid var(--border)">DN</td><td class="sub-header">CN</td><td class="sub-header">NV</td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2023</td>
+          <td style="border-left:2px solid var(--border)">298</td><td>5</td><td>80</td>
+          <td style="border-left:2px solid var(--border)">105</td><td>0</td><td>32</td>
+          <td style="border-left:2px solid var(--border)">—</td><td>—</td><td>—</td>
+        </tr>
+        <tr>
+          <td>2024</td>
+          <td style="border-left:2px solid var(--border)">698</td><td>16</td><td>47</td>
+          <td style="border-left:2px solid var(--border)">272</td><td>0</td><td>171</td>
+          <td style="border-left:2px solid var(--border)">—</td><td>—</td><td>—</td>
+        </tr>
+        <tr>
+          <td>2025</td>
+          <td style="border-left:2px solid var(--border)">1.121</td><td>37</td><td>38</td>
+          <td style="border-left:2px solid var(--border)">831</td><td>0</td><td>237</td>
+          <td style="border-left:2px solid var(--border)">4</td><td>123</td><td>186</td>
+        </tr>
+        <tr style="background:var(--sky-light)">
+          <td><b>2026</b></td>
+          <td style="border-left:2px solid var(--border)"><b>931</b></td><td><b>14</b></td><td><b>18</b></td>
+          <td style="border-left:2px solid var(--border)"><b>973</b></td><td><b>0</b></td><td><b>174</b></td>
+          <td style="border-left:2px solid var(--border)"><b>4</b></td><td><b>82</b></td><td><b>11</b></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ĐANG HOẠT ĐỘNG -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background:#dcfce7;color:#16a34a">✅</div>
+      <div>
+        <div class="card-title">Chứng thư đang hoạt động</div>
+        <div class="card-sub">Tính đến 29/06/2026</div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table class="dtable">
+      <thead>
+        <tr>
+          <th>Loại hình</th>
+          <th>Doanh nghiệp</th>
+          <th>Cá nhân</th>
+          <th>Nhân viên</th>
+          <th style="background:var(--accent-light);color:var(--accent)">Tổng</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>🔵 USB Token</td>
+          <td>2.235</td><td>40</td><td>58</td>
+          <td style="font-weight:700;color:var(--sky)">2.333</td>
+        </tr>
+        <tr>
+          <td>🟢 Tập trung</td>
+          <td>1.595</td><td>0</td><td>314</td>
+          <td style="font-weight:700;color:#16a34a">1.909</td>
+        </tr>
+        <tr>
+          <td>🟡 Mắt Bão Sign</td>
+          <td>3</td><td>48</td><td>184</td>
+          <td style="font-weight:700;color:var(--amber)">235</td>
+        </tr>
+        <tr class="highlight-row">
+          <td>Tổng cộng</td>
+          <td>3.833</td><td>88</td><td>556</td>
+          <td style="font-size:16px;font-weight:700;color:var(--accent)">4.477</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="tip amber" style="margin-top:14px">
+      <span class="tip-icon">💡</span>
+      <div>
+        <b>Gợi ý sử dụng tại Hội nghị:</b><br>
+        • Số liệu này hữu ích cho phần <b>thảo luận sáng T3</b> — khi các CA được yêu cầu báo cáo tình hình cung cấp dịch vụ.<br>
+        • <b>Mắt Bão Sign</b> có 184 nhân viên đang hoạt động vs chỉ 3 doanh nghiệp → cho thấy đang ở giai đoạn dùng nội bộ, cần đẩy mạnh B2B.<br>
+        • <b>Tập trung</b> tăng trưởng mạnh nhất (từ 137→443→1.068→1.147) — phù hợp xu hướng chuyển dịch khỏi USB Token.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  Tổng hợp bởi Claude AI · Cập nhật: 27/06/2026
+</div>
+
+</div><!-- end container -->
+
+<script>
+var tabOrder=['overview','meet1','meet2','meet3','data'];
+var swipeL=document.getElementById('swipeLeft');
+var swipeR=document.getElementById('swipeRight');
+
+function updateDots(idx){
+  var dots=document.querySelectorAll('.swipe-dots .dot');
+  dots.forEach(function(d,i){d.classList.toggle('active',i===idx)});
+}
+
+function activateTab(id,direction){
+  var old=document.querySelector('.tab-content.active');
+  if(old){old.classList.remove('active','slide-left','slide-right');old.style.transform='';old.style.opacity=''}
+  var el=document.getElementById('tab-'+id);
+  el.classList.remove('slide-left','slide-right');
+  if(direction==='left') el.classList.add('slide-left');
+  else if(direction==='right') el.classList.add('slide-right');
+  el.classList.add('active');
+
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});
+  var idx=tabOrder.indexOf(id);
+  if(idx>=0){
+    document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+    updateDots(idx);
+  }
+}
+
+function scrollToTabContent(id){
+  setTimeout(function(){
+    var tabsBar=document.querySelector('.tabs');
+    var tabsH=tabsBar.offsetHeight;
+    var content=document.getElementById('tab-'+id);
+    var top=content.getBoundingClientRect().top+window.pageYOffset-tabsH-8;
+    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+  },30);
+}
+
+var savedScrollY=0;
+
+function showTab(id){
+  var oldId=document.querySelector('.tab-content.active').id.replace('tab-','');
+  var oldIdx=tabOrder.indexOf(oldId);
+  var newIdx=tabOrder.indexOf(id);
+  var dir=newIdx>oldIdx?'left':newIdx<oldIdx?'right':null;
+
+  // Leaving overview → save scroll position
+  if(oldId==='overview' && id!=='overview'){
+    savedScrollY=window.pageYOffset;
+  }
+
+  activateTab(id,dir);
+
+  // Returning to overview → restore saved position
+  if(id==='overview'){
+    setTimeout(function(){window.scrollTo({top:savedScrollY,behavior:'smooth'})},30);
+  } else {
+    scrollToTabContent(id);
+  }
+}
+
+function showTabById(id){
+  savedScrollY=window.pageYOffset;
+  activateTab(id,'left');
+  scrollToTabContent(id);
+}
+
+// ===== SWIPE =====
+(function(){
+  var startX=0,startY=0,tracking=false,swiping=false;
+  var container=document.querySelector('.container');
+
+  container.addEventListener('touchstart',function(e){
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+    tracking=true;
+    swiping=false;
+  },{passive:true});
+
+  container.addEventListener('touchmove',function(e){
+    if(!tracking) return;
+    var dx=e.touches[0].clientX-startX;
+    var dy=e.touches[0].clientY-startY;
+
+    if(!swiping && Math.abs(dx)>15 && Math.abs(dx)>Math.abs(dy)*1.2){
+      swiping=true;
+    }
+    if(!swiping) return;
+
+    var current=document.querySelector('.tab-content.active');
+    var currentId=current.id.replace('tab-','');
+    var idx=tabOrder.indexOf(currentId);
+
+    // Show arrow hints
+    if(dx<-20 && idx<tabOrder.length-1){
+      swipeL.classList.add('visible','peek');
+      swipeR.classList.remove('visible','peek');
+    } else if(dx>20 && idx>0){
+      swipeR.classList.add('visible','peek');
+      swipeL.classList.remove('visible','peek');
+    } else {
+      swipeL.classList.remove('visible','peek');
+      swipeR.classList.remove('visible','peek');
+    }
+
+    // Content follows finger slightly
+    if(Math.abs(dx)>20){
+      var shift=Math.max(-40,Math.min(40,dx*0.2));
+      current.style.transform='translateX('+shift+'px)';
+      current.style.opacity=String(1-Math.min(Math.abs(dx)/600,0.3));
+    }
+  },{passive:true});
+
+  container.addEventListener('touchend',function(e){
+    if(!tracking) return;
+    tracking=false;
+
+    var current=document.querySelector('.tab-content.active');
+    current.style.transform='';
+    current.style.opacity='';
+    swipeL.classList.remove('visible','peek');
+    swipeR.classList.remove('visible','peek');
+
+    if(!swiping) return;
+    swiping=false;
+
+    var endX=e.changedTouches[0].clientX;
+    var dx=endX-startX;
+    if(Math.abs(dx)<60) return;
+
+    var currentId=current.id.replace('tab-','');
+    var idx=tabOrder.indexOf(currentId);
+
+    if(dx<0 && idx<tabOrder.length-1){
+      var nextId=tabOrder[idx+1];
+      if(currentId==='overview') savedScrollY=window.pageYOffset;
+      activateTab(nextId,'left');
+      if(nextId==='overview'){
+        setTimeout(function(){window.scrollTo({top:savedScrollY,behavior:'smooth'})},30);
+      } else {
+        scrollToTabContent(nextId);
+      }
+    } else if(dx>0 && idx>0){
+      var prevId=tabOrder[idx-1];
+      if(currentId!=='overview' && prevId==='overview'){
+        // don't update savedScrollY, just go back
+      } else if(currentId==='overview'){
+        savedScrollY=window.pageYOffset;
+      }
+      activateTab(prevId,'right');
+      if(prevId==='overview'){
+        setTimeout(function(){window.scrollTo({top:savedScrollY,behavior:'smooth'})},30);
+      } else {
+        scrollToTabContent(prevId);
+      }
+    }
+  },{passive:true});
+
+  container.addEventListener('touchcancel',function(){
+    tracking=false;swiping=false;
+    var c=document.querySelector('.tab-content.active');
+    if(c){c.style.transform='';c.style.opacity=''}
+    swipeL.classList.remove('visible','peek');
+    swipeR.classList.remove('visible','peek');
+  },{passive:true});
+})();
+</script>
+
+
+</body></html>

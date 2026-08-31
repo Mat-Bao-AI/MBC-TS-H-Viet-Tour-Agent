@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.guest import DispatchStatus
+from app.models.guest import DispatchStatus, NotificationChannel
 from app.models.tour import TourStatus
 from app.schemas.timeline import TimelineEventSchema
 
@@ -16,6 +16,8 @@ class GuestOut(BaseModel):
     full_name: str
     phone_number: str | None
     zalo_id: str | None
+    telegram_chat_id: str | None = None
+    notification_channel: NotificationChannel = NotificationChannel.ZALO
     seat_number: str | None
     room_number: str | None
     dietary_note: str | None
@@ -39,6 +41,7 @@ class GuestUpdateRequest(BaseModel):
     seat_number: str | None = None
     room_number: str | None = None
     dietary_note: str | None = None
+    notification_channel: NotificationChannel | None = None
 
 
 class GuestCreateRequest(BaseModel):
@@ -47,6 +50,7 @@ class GuestCreateRequest(BaseModel):
     seat_number: str | None = None
     room_number: str | None = None
     dietary_note: str | None = None
+    notification_channel: NotificationChannel = NotificationChannel.ZALO
 
 
 class GuestImportResponse(BaseModel):

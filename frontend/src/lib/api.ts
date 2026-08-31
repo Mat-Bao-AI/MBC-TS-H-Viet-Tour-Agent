@@ -7,6 +7,9 @@ const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
 export type DispatchGuestStatus = "pending" | "sent" | "read" | "confirmed" | "failed";
+// Kênh gửi thông báo — mỗi khách chọn 1 kênh (không multi-channel/khách, xem
+// backend/app/services/notification/). "telegram" chưa có UI chọn (Phase 4).
+export type NotificationChannel = "zalo" | "telegram";
 
 export type TimelineEvent = {
   day_index: number;
@@ -21,6 +24,8 @@ export type Guest = {
   full_name: string;
   phone_number: string | null;
   zalo_id: string | null;
+  telegram_chat_id: string | null;
+  notification_channel: NotificationChannel;
   seat_number: string | null;
   room_number: string | null;
   dietary_note: string | null;

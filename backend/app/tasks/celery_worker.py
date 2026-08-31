@@ -1,7 +1,9 @@
-"""Celery worker — hàng đợi gửi tin nhắn Zalo tuần tự.
+"""Celery worker — hàng đợi gửi tin nhắn tuần tự (Zalo/Telegram/...).
 
 Chạy tuần tự + rate_limit thay vì gửi song song toàn bộ khách cùng lúc: giảm
-rủi ro bị Zalo đánh dấu spam/khoá tài khoản khi dispatch cho đoàn đông khách.
+rủi ro bị nền tảng (Zalo, Telegram) đánh dấu spam khi dispatch cho đoàn đông
+khách. Gửi qua app.services.notification (interface chung mọi kênh) — task
+không biết/không cần biết Zalo hay Telegram, xem notification/base.py.
 """
 
 from datetime import datetime
@@ -15,29 +17,7 @@ from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour
 from app.schemas.timeline import TimelineEventSchema
-from app.services.zalo_service import ZaloServiceError, resolve_user_by_phone_sync, send_message_sync
-
-
-def _resolve_zalo_id_or_raise(guest: Guest) -> None:
-    """Đảm bảo guest.zalo_id có giá trị trước khi gửi — raise ZaloServiceError
-    với message rõ ràng cho MỌI lý do thất bại (không tìm thấy SĐT, thiếu
-    SĐT, hay bridge lỗi khác như "chưa đăng nhập") để nơi gọi luôn bắt được
-    và ghi vào dispatch_error. Bug thật đã gặp: trước đây resolve_user_by_
-    phone_sync raise thẳng ZaloServiceError (vd lỗi 409 "chưa đăng nhập") mà
-    KHÔNG nằm trong try/except nào — task fail âm thầm sau 3 lần retry,
-    dispatch_status vẫn "pending" mãi mãi, không ghi lý do gì cả."""
-    if guest.zalo_id:
-        return
-    if not guest.phone_number:
-        raise ZaloServiceError("Thiếu cả zalo_id lẫn số điện thoại — không có cách nào gửi được.")
-    resolved = resolve_user_by_phone_sync(guest.phone_number)
-    if resolved is None:
-        raise ZaloServiceError(
-            f"Không tìm được tài khoản Zalo cho SĐT {guest.phone_number} — SĐT sai, "
-            "khách chưa dùng Zalo với SĐT này, hoặc khách chưa là bạn Zalo với tài khoản đang dùng để gửi tin."
-        )
-    guest.zalo_id = resolved["zaloId"]
-
+from app.services.notification import NotificationError, get_sender
 
 settings = get_settings()
 
@@ -80,16 +60,17 @@ def dispatch_guest_message(guest_id: str) -> dict:
 
         events = [TimelineEventSchema(**e) for e in (timeline.events or [])]
 
-        # 1 try/except DUY NHẤT bọc cả bước resolve zalo_id lẫn bước gửi —
-        # đảm bảo MỌI exception (kể cả ZaloServiceError không phải do resolve
-        # trả None, vd lỗi 409 "chưa đăng nhập") đều được ghi vào
-        # dispatch_error trước khi Celery autoretry, không lọt lưới.
+        # 1 try/except DUY NHẤT bọc cả bước resolve recipient lẫn bước gửi —
+        # đảm bảo MỌI exception (bug thật đã gặp: 1 exception lọt khỏi
+        # try/except khiến task fail âm thầm sau 3 lần retry, dispatch_status
+        # kẹt "pending" mãi mãi) đều được ghi vào dispatch_error.
         try:
-            _resolve_zalo_id_or_raise(guest)
+            sender = get_sender(guest.notification_channel)
+            recipient_id = sender.resolve_recipient(guest)
             session.commit()
             message_text = format_guest_message(tour, events, guest)
-            send_message_sync(guest.zalo_id, message_text)
-        except Exception as exc:
+            sender.send(recipient_id, message_text)
+        except NotificationError as exc:
             guest.dispatch_status = DispatchStatus.FAILED
             guest.dispatch_error = str(exc)[:500]
             session.commit()
@@ -121,10 +102,11 @@ def dispatch_quick_update_message(guest_id: str, message_text: str) -> dict:
             return {"ok": False, "error": f"Không tìm thấy guest {guest_id}"}
 
         try:
-            _resolve_zalo_id_or_raise(guest)
+            sender = get_sender(guest.notification_channel)
+            recipient_id = sender.resolve_recipient(guest)
             session.commit()
-            send_message_sync(guest.zalo_id, message_text)
-        except Exception as exc:
+            sender.send(recipient_id, message_text)
+        except NotificationError as exc:
             guest.dispatch_error = str(exc)[:500]
             session.commit()
             raise

@@ -12,10 +12,19 @@ from app.core.database import Base
 
 class DispatchStatus(str, enum.Enum):
     PENDING = "pending"  # chưa gửi
-    SENT = "sent"  # đã gửi qua Zalo
-    READ = "read"  # khách đã đọc (Phase 2: cần Zalo trả webhook/seen status)
-    CONFIRMED = "confirmed"  # khách xác nhận tham gia (Phase 2: RSVP)
-    FAILED = "failed"  # gửi lỗi (vd. không tìm được zalo_id từ SĐT)
+    SENT = "sent"  # đã gửi qua kênh đã chọn (Zalo/Telegram)
+    READ = "read"  # khách đã đọc (HDV tự đánh dấu — chưa có webhook seen-status tự động)
+    CONFIRMED = "confirmed"  # khách xác nhận tham gia (HDV tự đánh dấu)
+    FAILED = "failed"  # gửi lỗi (vd. không tìm được id kênh từ SĐT)
+
+
+class NotificationChannel(str, enum.Enum):
+    """Kênh HDV chọn để gửi thông báo cho khách này — mỗi khách 1 kênh
+    (không multi-channel per-guest, xem docs/PLAN — quyết định giữ đơn giản
+    khi thêm Telegram/Web link cạnh Zalo)."""
+
+    ZALO = "zalo"
+    TELEGRAM = "telegram"
 
 
 class Guest(Base):
@@ -29,6 +38,17 @@ class Guest(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     zalo_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # ID chat Telegram của khách — chỉ có sau khi khách tự bấm deep-link
+    # t.me/<bot>?start=<mã_khách> và bot ghi nhận qua webhook (xem
+    # app/services/notification/telegram_sender.py). Bot KHÔNG có cách nào
+    # tự tìm ra chat_id từ SĐT như Zalo — bắt buộc khách phải chủ động bấm
+    # trước, đây là giới hạn thật của nền tảng Telegram, không phải thiếu sót.
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notification_channel: Mapped[NotificationChannel] = mapped_column(
+        Enum(NotificationChannel, native_enum=False, length=20),
+        default=NotificationChannel.ZALO,
+        nullable=False,
+    )
 
     seat_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     room_number: Mapped[str | None] = mapped_column(String(20), nullable=True)

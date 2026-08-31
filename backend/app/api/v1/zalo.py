@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.zalo_format_agent import format_guest_message
 from app.core.database import get_db
-from app.models.guest import Guest
+from app.models.guest import Guest, NotificationChannel
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour
 from app.schemas.timeline import TimelineEventSchema
@@ -24,6 +24,19 @@ from app.services.zalo_service import ZaloServiceError
 from app.tasks.celery_worker import dispatch_guest_message, dispatch_quick_update_message
 
 router = APIRouter(prefix="/zalo", tags=["zalo"])
+
+
+def _has_sendable_contact(guest: Guest) -> bool:
+    """Kiểm tra sơ bộ trước khi queue task — có đủ thông tin liên hệ THEO
+    ĐÚNG KÊNH khách đã chọn hay chưa. Trước đây check cứng zalo_id/phone_number
+    cho MỌI khách bất kể kênh — khách chọn Telegram luôn bị đánh "skipped"
+    ngay từ vòng lọc này (dù lý do thật là "chưa triển khai", không phải
+    thiếu liên hệ), gây nhầm lẫn khi debug. Chỉ là pre-check tối ưu UX (đếm
+    "skipped" cho HDV) — lý do lỗi thật/chính xác vẫn do
+    NotificationSender.resolve_recipient() quyết định trong task."""
+    if guest.notification_channel == NotificationChannel.TELEGRAM:
+        return bool(guest.telegram_chat_id)
+    return bool(guest.zalo_id or guest.phone_number)
 
 
 async def _load_tour_with_timeline(tour_id: str, db: AsyncSession) -> tuple[Tour, list[TimelineEventSchema]]:
@@ -65,7 +78,7 @@ async def dispatch(tour_id: str, payload: DispatchRequest, db: AsyncSession = De
     queued = 0
     skipped: list[str] = []
     for guest in guests:
-        if not guest.zalo_id and not guest.phone_number:
+        if not _has_sendable_contact(guest):
             skipped.append(guest.id)
             continue
         dispatch_guest_message.delay(guest.id)
@@ -94,7 +107,7 @@ async def quick_update(
     queued = 0
     skipped: list[str] = []
     for guest in guests:
-        if not guest.zalo_id and not guest.phone_number:
+        if not _has_sendable_contact(guest):
             skipped.append(guest.id)
             continue
         dispatch_quick_update_message.delay(guest.id, payload.message)

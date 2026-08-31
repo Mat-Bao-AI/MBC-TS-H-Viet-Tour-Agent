@@ -8,21 +8,31 @@ thông báo cá nhân hoá tới khách hàng qua Zalo.
 
 ## Trạng thái hiện tại
 
-✅ **Phase 1 — MVP lõi đã dựng xong, chạy được qua `docker compose up`** (đã
-smoke-test end-to-end: build, migration, upload → agent xử lý lỗi được bắt
-đúng, QR Zalo sinh được thật). Còn thiếu duy nhất `GEMINI_API_KEY` thật để
-agent trích xuất/sinh timeline chạy được (xem Quickstart). Phạm vi MVP:
+✅ **Phase 1 — MVP lõi** (upload → agent → duyệt timeline → gửi Zalo 1-1) đã
+dựng xong, chạy được qua `docker compose up`, smoke-test end-to-end pass.
 
-- Upload tài liệu tour (PDF/DOCX/XLSX/TXT) → Agent trích xuất dữ liệu có cấu trúc
-- Agent sinh timeline chi tiết theo mốc giờ
-- HDV xem/duyệt/sửa timeline trên giao diện web (thêm/xoá/sắp xếp mốc giờ)
-- Đăng nhập Zalo cá nhân qua quét QR
-- Gửi tin nhắn cá nhân hoá 1-1 tới khách qua **Zalo Personal (unofficial, zca-js)**,
-  hàng đợi Celery giới hạn tốc độ gửi
+✅ **Phase 2 — giao diện dựng lại theo thiết kế Google Stitch (MCP) +
+các tính năng RSVP/thời tiết/gửi nhanh/gửi nhóm** (2026-08-31, xem
+[docs/STITCH-DESIGN.md](docs/STITCH-DESIGN.md) — nguồn thiết kế + design
+token đầy đủ):
 
-Chưa làm ở Phase 1 (dời sang Phase 2): OCR ảnh chụp lịch trình, tích hợp thời
-tiết, gửi tin nhóm Zalo, RSVP tracking dashboard, lệnh cập nhật khẩn
-(Instant Quick-Update), VietQR, Zalo OA chính thức.
+- Giao diện mobile-first theo đúng 8 màn Stitch: Dashboard, Danh sách Tour,
+  Tạo Tour, Lịch trình, RSVP, Cài đặt, Đăng nhập QR — bottom nav 3 tab.
+- **Thời tiết thật** trên timeline (Open-Meteo, miễn phí, không cần key) —
+  geocode địa danh + dự báo theo ngày, ẩn đi (không bịa số) nếu ngoài phạm
+  vi dự báo hoặc tour chưa có ngày.
+- **Instant Quick-Update**: gửi tin khẩn tức thời (tự soạn, hoặc ghép từ 1
+  mốc timeline) tới cả đoàn, không cần soạn lại toàn bộ lịch trình.
+- **RSVP tracking**: 3 tab Đã gửi/Đã xem/Đã xác nhận theo `dispatch_status`
+  thật. Đã xem/Đã xác nhận do HDV tự đánh dấu tay (chưa có webhook
+  seen-message tự động từ Zalo ở Phase 2 — xem ghi chú trong
+  `GuestStatusUpdateRequest`).
+- **Gửi Zalo Group**: tạo 1 nhóm Zalo thật (zca-js `createGroup`) gồm khách
+  đã resolve được zalo_id, gửi tin chung 1 lần thay vì N tin 1-1.
+
+Chưa làm (còn lại, để backlog): OCR ảnh chụp lịch trình, VietQR, Zalo OA
+chính thức, tự động hoá "Đã xem" qua webhook `seen_messages` thật của
+zca-js (đã xác nhận API tồn tại, chưa triển khai).
 
 ⚠️ **Lưu ý rủi ro:** Phase 1 dùng Zalo Personal Client không chính thức
 (`zca-js`, đăng nhập quét QR) — vi phạm Điều khoản dịch vụ của Zalo, tài khoản

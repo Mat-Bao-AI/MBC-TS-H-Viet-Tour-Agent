@@ -5,8 +5,10 @@ NotificationSender (base.py), đăng ký vào get_sender() bên dưới — KHÔ
 sửa app/tasks/celery_worker.py.
 """
 
+from app.core.config import get_settings
 from app.models.guest import NotificationChannel
 from app.services.notification.base import NotificationError, NotificationSender
+from app.services.notification.telegram_sender import TelegramSender
 from app.services.notification.zalo_sender import ZaloSender
 
 __all__ = ["NotificationError", "NotificationSender", "get_sender"]
@@ -16,9 +18,10 @@ def get_sender(channel: NotificationChannel) -> NotificationSender:
     if channel == NotificationChannel.ZALO:
         return ZaloSender()
     if channel == NotificationChannel.TELEGRAM:
-        # Phase 3 (chưa triển khai) — raise rõ ràng thay vì import lỗi mù mờ,
-        # để dispatch_error hiện đúng lý do thay vì task crash không rõ ràng.
-        raise NotificationError(
-            "Kênh Telegram chưa được triển khai — đang ở Phase 3, đổi khách này về kênh Zalo để gửi được ngay."
-        )
+        if not get_settings().telegram_configured:
+            raise NotificationError(
+                "Chưa cấu hình Telegram (TELEGRAM_BOT_TOKEN/TELEGRAM_WEBHOOK_SECRET) — "
+                "đổi khách này về kênh Zalo để gửi được ngay, hoặc cấu hình Telegram trong .env."
+            )
+        return TelegramSender()
     raise NotificationError(f"Kênh thông báo không hợp lệ: {channel}")

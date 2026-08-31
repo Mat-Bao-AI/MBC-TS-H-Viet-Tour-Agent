@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # Zalo bridge (Node.js service bọc zca-js — xem app/services/zalo_service.py)
     zalo_bridge_url: str = "http://zalo_bridge:4000"
 
+    # Telegram Bot API — kênh gửi thứ 2 (Phase 3), gọi thẳng httpx từ Python,
+    # KHÔNG cần service bridge riêng như Zalo (API chính thức, có tài liệu rõ
+    # ràng). Tạo bot qua @BotFather để lấy token.
+    telegram_bot_token: str = ""
+    # Secret tự đặt (vd openssl rand -hex 32) — dùng để xác thực webhook thật
+    # sự đến từ Telegram (header X-Telegram-Bot-Api-Secret-Token phải khớp),
+    # tránh ai đó giả mạo request để tự gán telegram_chat_id cho khách người
+    # khác. Xem app/api/v1/telegram_webhook.py.
+    telegram_webhook_secret: str = ""
+
     # Thư mục lưu file tài liệu tour đã upload (Phase 1: local storage)
     upload_dir: str = "./storage/uploads"
     max_upload_size_mb: int = 20
@@ -75,6 +85,10 @@ class Settings(BaseSettings):
     @property
     def gemini_configured(self) -> bool:
         return self._is_configured(self.gemini_api_key)
+
+    @property
+    def telegram_configured(self) -> bool:
+        return self._is_configured(self.telegram_bot_token) and self._is_configured(self.telegram_webhook_secret)
 
     @property
     def azure_openai_configured(self) -> bool:

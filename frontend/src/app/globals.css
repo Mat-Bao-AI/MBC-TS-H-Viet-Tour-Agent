@@ -27,3 +27,21 @@ body {
   color: hsl(var(--foreground));
   font-family: var(--font-be-vietnam-pro), system-ui, sans-serif;
 }
+
+/* Icon font cho trang công khai /t/[id] (xem app/t/[id]/layout.tsx) — theo
+   đúng snippet CSS Stitch dùng cho Material Symbols, không áp dụng font cho
+   toàn app nội bộ. */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}

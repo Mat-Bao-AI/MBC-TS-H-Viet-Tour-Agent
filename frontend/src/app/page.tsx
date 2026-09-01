@@ -60,7 +60,13 @@ export default function HomePage() {
   return (
     <div className="relative flex flex-col gap-4 pt-2">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Chuyến đi của tôi</h1>
+        <h1 className="text-xl font-bold lg:text-2xl">Chuyến đi của tôi</h1>
+        <Link
+          href="/tours/create"
+          className="hidden items-center gap-1.5 rounded-md bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground hover:opacity-90 lg:inline-flex"
+        >
+          + Tạo tour mới
+        </Link>
       </div>
 
       <input
@@ -98,7 +104,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 pb-4">
+      <div className="flex flex-col gap-3 pb-4 lg:grid lg:grid-cols-3 lg:gap-4">
         {filtered?.map((tour) => {
           const progressPct = tour.guests_total > 0 ? Math.round((tour.guests_sent / tour.guests_total) * 100) : 0;
           return (
@@ -133,7 +139,7 @@ export default function HomePage() {
 
       <Link
         href="/tours/create"
-        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground shadow-lg"
+        className="fixed bottom-24 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-2xl font-bold text-secondary-foreground shadow-lg lg:hidden"
         aria-label="Tạo tour mới"
       >
         +

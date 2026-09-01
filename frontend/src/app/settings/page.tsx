@@ -54,7 +54,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-5 pt-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between lg:hidden">
         <span className="text-lg font-semibold text-primary">VietTour Agent</span>
       </div>
 

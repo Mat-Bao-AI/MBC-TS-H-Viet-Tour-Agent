@@ -13,12 +13,17 @@
 //
 // Auth (2026-08-31): mọi route TRỪ /signin và /t/[id] (trang công khai, xem
 // bên dưới) đều yêu cầu đăng nhập app thật — chưa đăng nhập bị đưa về
-// /signin?next=<path>. Thanh user/đăng xuất ở đây chỉ tạm — Phase Web layout
-// sẽ thay bằng header/sidebar thiết kế qua Stitch, không phải bản chốt.
+// /signin?next=<path>.
+//
+// Web layout (Phase 2): từ breakpoint lg: trở lên, Sidebar (rail dọc cố định
+// bên trái, xem components/sidebar.tsx) thay cho BottomNav + thanh user/đăng
+// xuất trên cùng — 2 thứ đó gộp hẳn vào Sidebar cho gọn, không lặp lại ở 2
+// nơi. Dưới lg: giữ nguyên khung mobile-app cũ (max-w-md, bottom nav).
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BottomNav } from "@/components/bottom-nav";
 import { LlmProviderBanner } from "@/components/llm-provider-banner";
+import { Sidebar } from "@/components/sidebar";
 import { useAuth } from "@/lib/auth";
 
 const TAB_PAGES = ["/", "/dashboard", "/settings"];
@@ -62,18 +67,30 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <LlmProviderBanner />
-      <div className="mx-auto flex max-w-md items-center justify-between px-4 pt-3 text-xs text-muted-foreground">
-        <span>
-          {user.full_name} · {user.role === "admin" ? "Admin" : "HDV"}
-        </span>
-        <button onClick={logout} className="font-medium text-primary hover:underline">
-          Đăng xuất
-        </button>
+      <Sidebar user={user} onLogout={logout} />
+      <div className="lg:pl-64">
+        {/* Thanh user/đăng xuất — chỉ mobile, desktop đã có trong Sidebar */}
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 pt-3 text-xs text-muted-foreground lg:hidden">
+          <span>
+            {user.full_name} · {user.role === "admin" ? "Admin" : "HDV"}
+          </span>
+          <button onClick={logout} className="font-medium text-primary hover:underline">
+            Đăng xuất
+          </button>
+        </div>
+        {/* 3 trang tab chính (danh sách/tổng quan) tận dụng chiều rộng desktop
+            (lg:max-w-6xl) — trang con (form tạo tour, chi tiết 1 tour...) giữ
+            khung đọc vừa phải (lg:max-w-3xl), tránh 1 form/cột đơn kéo dài hết
+            màn hình rộng trông rất xấu. */}
+        <main
+          className={`mx-auto flex max-w-md flex-col gap-4 px-4 pt-2 lg:px-8 lg:pt-8 ${
+            showBottomNav ? "lg:max-w-6xl pb-20 lg:pb-8" : "lg:max-w-3xl pb-6 lg:pb-8"
+          }`}
+        >
+          {children}
+        </main>
+        {showBottomNav && <BottomNav />}
       </div>
-      <main className={`mx-auto flex max-w-md flex-col gap-4 px-4 pt-2 ${showBottomNav ? "pb-20" : "pb-6"}`}>
-        {children}
-      </main>
-      {showBottomNav && <BottomNav />}
     </>
   );
 }

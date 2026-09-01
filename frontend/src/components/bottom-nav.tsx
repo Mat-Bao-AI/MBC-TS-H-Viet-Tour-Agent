@@ -2,6 +2,8 @@
 
 // Thanh điều hướng dưới cùng — 3 tab theo đúng thiết kế Stitch (Dashboard /
 // Tours / Settings), chỉ hiện ở các trang cấp cao nhất (xem layout.tsx).
+// lg:hidden — từ breakpoint desktop trở lên, Sidebar (components/sidebar.tsx)
+// thay thế hoàn toàn, tránh hiện cả 2 cùng lúc.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,7 +18,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card lg:hidden">
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1.5">
         {TABS.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);

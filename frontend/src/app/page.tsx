@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, TourListItem } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
+import { tripPhase } from "@/lib/utils";
 
 type Phase = "all" | "ongoing" | "upcoming" | "done";
 
@@ -13,20 +14,6 @@ const CHIPS: { key: Phase; label: string }[] = [
   { key: "upcoming", label: "Sắp tới" },
   { key: "done", label: "Đã hoàn thành" },
 ];
-
-// Suy trạng thái theo thời gian THẬT từ start_date/end_date (khác
-// TourStatus — trạng thái xử lý tài liệu). Tour chưa xác định ngày (agent
-// không trích được, hoặc tour vừa tạo) xếp chung nhóm "Sắp tới".
-function tripPhase(tour: TourListItem): Phase {
-  if (!tour.start_date || !tour.end_date) return "upcoming";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(tour.start_date);
-  const end = new Date(tour.end_date);
-  if (today < start) return "upcoming";
-  if (today > end) return "done";
-  return "ongoing";
-}
 
 export default function HomePage() {
   const [tours, setTours] = useState<TourListItem[] | null>(null);

@@ -20,6 +20,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={beVietnamPro.variable}>
+      {/* Material Symbols — dùng trong Sidebar (components/sidebar.tsx) và mọi
+          nơi khác cần icon nhất quán với thiết kế Stitch desktop. Nạp ở root
+          vì Sidebar hiện trên MỌI trang đã đăng nhập, không riêng 1 route. */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1&display=swap"
+        rel="stylesheet"
+      />
       <body className="min-h-screen bg-background text-foreground antialiased">
         <AuthProvider>
           <AppChrome>{children}</AppChrome>

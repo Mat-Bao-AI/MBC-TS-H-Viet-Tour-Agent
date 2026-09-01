@@ -16,3 +16,29 @@ export function parseApiDate(iso: string): Date {
   const hasTimezone = /[zZ]|[+-]\d\d:\d\d$/.test(iso);
   return new Date(hasTimezone ? iso : `${iso}Z`);
 }
+
+export type TripPhase = "ongoing" | "upcoming" | "done";
+
+/**
+ * Trạng thái tour theo thời gian THẬT (start_date/end_date) — khác
+ * TourStatus (trạng thái xử lý tài liệu: draft/parsing/review/...). Tour
+ * chưa xác định ngày (agent chưa trích được, hoặc vừa tạo) xếp "upcoming".
+ * Dùng chung cho page.tsx (danh sách tour) và dashboard/page.tsx (badge
+ * overlay trên card tour đang làm).
+ */
+export function tripPhase(tour: { start_date: string | null; end_date: string | null }): TripPhase {
+  if (!tour.start_date || !tour.end_date) return "upcoming";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(tour.start_date);
+  const end = new Date(tour.end_date);
+  if (today < start) return "upcoming";
+  if (today > end) return "done";
+  return "ongoing";
+}
+
+export const TRIP_PHASE_LABEL: Record<TripPhase, string> = {
+  ongoing: "Đang diễn ra",
+  upcoming: "Sắp diễn ra",
+  done: "Đã hoàn thành",
+};

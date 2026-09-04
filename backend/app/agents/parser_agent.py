@@ -21,6 +21,10 @@ thì để trống (null / danh sách rỗng), đừng đoán.
 raw_notes thay vì tự suy đoán năm.
 - Danh sách khách có thể xuất hiện ở cả 2 nguồn (tài liệu lịch trình lẫn danh \
 sách đoàn riêng) — gộp lại, tránh trùng lặp theo tên+SĐT.
+- Nếu tài liệu cho thấy rõ ai đi CÙNG ai (gia đình, cặp đôi, nhóm được nhắc \
+tới chung với nhau), gán CÙNG 1 nhãn travel_group ngắn gọn cho những khách đó \
+— phục vụ xếp phòng sau này. KHÔNG tự suy đoán nhóm nếu tài liệu không có \
+căn cứ rõ ràng (vd chỉ vì cùng 1 file không có nghĩa là đi cùng nhau).
 """
 
 
@@ -42,14 +46,17 @@ async def extract_tour_info(itinerary_text: str, guest_list_text: str | None = N
 
 _GUEST_LIST_SYSTEM_PROMPT = """\
 Bạn là trợ lý AI đọc danh sách đoàn khách du lịch tiếng Việt (thường ở dạng \
-bảng Excel hoặc text tự do: tên, số điện thoại, số ghế, số phòng, ghi chú ăn \
-uống...) và trích xuất đúng từng khách một.
+bảng Excel hoặc text tự do: tên, tuổi, số điện thoại, nhóm đi cùng, số ghế, \
+số phòng, ghi chú ăn uống...) và trích xuất đúng từng khách một.
 
 Quy tắc:
 - KHÔNG bịa thông tin không có trong tài liệu — trường nào không thấy thì để trống.
 - Giữ nguyên tên riêng, số điện thoại đúng định dạng gốc.
 - Mỗi dòng/mỗi mục thường là 1 khách — đừng gộp nhiều người vào 1 bản ghi trừ \
 khi tài liệu rõ ràng ghi chung (vd "2 vợ chồng: Anh A & chị B" thì tách thành 2).
+- Nếu có cột/ghi chú kiểu "nhóm", "đi cùng", "gia đình" hoặc văn bản nêu rõ ai \
+đi với ai, gán CÙNG 1 nhãn travel_group ngắn gọn cho những khách đó — phục vụ \
+xếp phòng sau này. KHÔNG tự suy đoán nhóm nếu tài liệu không có căn cứ rõ ràng.
 """
 
 

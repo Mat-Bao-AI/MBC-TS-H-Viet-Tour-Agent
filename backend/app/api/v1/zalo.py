@@ -8,9 +8,9 @@ from app.agents.zalo_format_agent import format_guest_message
 from app.core.access import get_owned_tour
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.guest import Guest, NotificationChannel
+from app.models.guest import Guest
 from app.models.timeline_event import Timeline
-from app.models.tour import Tour
+from app.models.tour import Tour, TourStatus
 from app.models.user import User
 from app.schemas.timeline import TimelineEventSchema
 from app.schemas.tour import GuestOut
@@ -30,15 +30,9 @@ router = APIRouter(prefix="/zalo", tags=["zalo"])
 
 
 def _has_sendable_contact(guest: Guest) -> bool:
-    """Kiểm tra sơ bộ trước khi queue task — có đủ thông tin liên hệ THEO
-    ĐÚNG KÊNH khách đã chọn hay chưa. Trước đây check cứng zalo_id/phone_number
-    cho MỌI khách bất kể kênh — khách chọn Telegram luôn bị đánh "skipped"
-    ngay từ vòng lọc này (dù lý do thật là "chưa triển khai", không phải
-    thiếu liên hệ), gây nhầm lẫn khi debug. Chỉ là pre-check tối ưu UX (đếm
-    "skipped" cho HDV) — lý do lỗi thật/chính xác vẫn do
-    NotificationSender.resolve_recipient() quyết định trong task."""
-    if guest.notification_channel == NotificationChannel.TELEGRAM:
-        return bool(guest.telegram_chat_id)
+    """Kiểm tra sơ bộ trước khi queue task — có zalo_id/SĐT chưa. Chỉ là
+    pre-check tối ưu UX (đếm "skipped" cho HDV) — lý do lỗi thật/chính xác
+    vẫn do NotificationSender.resolve_recipient() quyết định trong task."""
     return bool(guest.zalo_id or guest.phone_number)
 
 
@@ -226,5 +220,11 @@ async def send_group_message(
         await zalo_service.send_group_message(tour.zalo_group_id, payload.message)
     except ZaloServiceError as exc:
         raise HTTPException(status_code=502, detail=f"zalo_bridge lỗi gửi nhóm: {exc}") from exc
+
+    # Gửi qua nhóm cũng tính là "đã gửi" cho tour — cùng logic tự chuyển
+    # trạng thái với dispatch_guest_message (celery_worker.py).
+    if tour.status == TourStatus.REVIEW:
+        tour.status = TourStatus.DISPATCHED
+        await db.commit()
 
     return {"ok": True}

@@ -63,20 +63,29 @@ export default function HomePage() {
         className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
       />
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {CHIPS.map((c) => (
-          <button
-            key={c.key}
-            onClick={() => setPhase(c.key)}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-              phase === c.key
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground"
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {CHIPS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setPhase(c.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                phase === c.key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {/* Gợi ý còn tab bị che bên phải khi hàng pill tràn (mobile hẹp) — QC
+            2026-09-04: overflow-x-auto cuộn được nhưng không có tín hiệu trực
+            quan, dễ tưởng "Đã hoàn thành" bị mất chứ không phải cuộn được. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent"
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -12,12 +12,10 @@ type Props = {
   tourId: string;
   guestCount: number;
   zaloConnected: boolean;
-  telegramConfigured: boolean;
   onClose: () => void;
 };
 
-export function QuickUpdateSheet({ tourId, guestCount, zaloConnected, telegramConfigured, onClose }: Props) {
-  const anyChannelReady = zaloConnected || telegramConfigured;
+export function QuickUpdateSheet({ tourId, guestCount, zaloConnected, onClose }: Props) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ queued: number; skipped: string[] } | null>(null);
@@ -51,17 +49,16 @@ export function QuickUpdateSheet({ tourId, guestCount, zaloConnected, telegramCo
           </button>
         </div>
 
-        {!anyChannelReady && (
+        {!zaloConnected && (
           <p className="mb-3 text-sm text-destructive">
-            ⚠️ Chưa kết nối Zalo hoặc cấu hình Telegram — tin sẽ được xếp hàng nhưng không gửi được cho tới khi có
-            ít nhất 1 kênh sẵn sàng.
+            ⚠️ Chưa kết nối Zalo — tin sẽ được xếp hàng nhưng không gửi được cho tới khi kết nối.
           </p>
         )}
 
         {result ? (
           <p className="text-sm text-success">
             Đã xếp hàng gửi tới {result.queued} khách.
-            {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu thông tin liên hệ theo kênh đã chọn.`}
+            {result.skipped.length > 0 && ` Bỏ qua ${result.skipped.length} khách thiếu zalo_id/SĐT.`}
           </p>
         ) : (
           <>

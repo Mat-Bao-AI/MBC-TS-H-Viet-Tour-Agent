@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.guest import DispatchStatus, NotificationChannel
+from app.models.guest import DispatchStatus
 from app.models.tour import TourStatus
 from app.schemas.timeline import TimelineEventSchema
 
@@ -16,8 +16,9 @@ class GuestOut(BaseModel):
     full_name: str
     phone_number: str | None
     zalo_id: str | None
-    telegram_chat_id: str | None = None
-    notification_channel: NotificationChannel = NotificationChannel.ZALO
+    age: int | None = None
+    travel_group: str | None = None
+    room_type_id: str | None = None
     seat_number: str | None
     room_number: str | None
     dietary_note: str | None
@@ -38,19 +39,25 @@ class GuestStatusUpdateRequest(BaseModel):
 class GuestUpdateRequest(BaseModel):
     full_name: str | None = None
     phone_number: str | None = None
+    age: int | None = None
+    travel_group: str | None = None
+    # Cho HDV tự sửa lại gợi ý của thuật toán (app/services/room_assignment.py)
+    # nếu thấy chưa hợp lý — gán thủ công qua field này, không có validate
+    # "loại phòng còn tồn kho không" (HDV tự chịu trách nhiệm khi ghi đè tay).
+    room_type_id: str | None = None
     seat_number: str | None = None
     room_number: str | None = None
     dietary_note: str | None = None
-    notification_channel: NotificationChannel | None = None
 
 
 class GuestCreateRequest(BaseModel):
     full_name: str
     phone_number: str | None = None
+    age: int | None = None
+    travel_group: str | None = None
     seat_number: str | None = None
     room_number: str | None = None
     dietary_note: str | None = None
-    notification_channel: NotificationChannel = NotificationChannel.ZALO
 
 
 class GuestImportResponse(BaseModel):
@@ -90,6 +97,7 @@ class TourDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     zalo_group_id: str | None = None
+    has_cover_image: bool = False
 
 
 class TourCreateResponse(BaseModel):

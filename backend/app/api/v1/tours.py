@@ -4,9 +4,13 @@ import asyncio
 import tempfile
 import uuid
 from datetime import date, timedelta
+from io import BytesIO
 from pathlib import Path
 
+import openpyxl
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
+from openpyxl.styles import Font
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,12 +20,16 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.guest import DispatchStatus, Guest
+from app.models.room_type import RoomType
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
 from app.models.user import User, UserRole
 from app.schemas.extraction import ExtractedGuest
+from app.schemas.room_assignment import AssignedGroupOut, AutoAssignRoomsResponse, UnassignedGroupOut
+from app.schemas.room_type import RoomTypeCreateRequest, RoomTypeOut, RoomTypeUpdateRequest
 from app.schemas.timeline import EventWeather, TimelineEventSchema, TimelineUpdateRequest
 from app.services import weather_service
+from app.services.room_assignment import assign_rooms
 from app.schemas.tour import (
     GuestCreateRequest,
     GuestImportResponse,
@@ -89,6 +97,8 @@ def upsert_guests_from_extraction(
         existing = existing_by_phone.get(eg.phone_number) if eg.phone_number else None
         if existing:
             existing.full_name = eg.full_name or existing.full_name
+            existing.age = eg.age if eg.age is not None else existing.age
+            existing.travel_group = eg.travel_group or existing.travel_group
             existing.seat_number = eg.seat_number or existing.seat_number
             existing.room_number = eg.room_number or existing.room_number
             existing.dietary_note = eg.dietary_note or existing.dietary_note
@@ -99,6 +109,8 @@ def upsert_guests_from_extraction(
                 tour_id=tour_id,
                 full_name=eg.full_name,
                 phone_number=eg.phone_number,
+                age=eg.age,
+                travel_group=eg.travel_group,
                 seat_number=eg.seat_number,
                 room_number=eg.room_number,
                 dietary_note=eg.dietary_note,
@@ -181,6 +193,46 @@ async def list_tours(
     return [tour_to_list_item(t) for t in result.scalars().all()]
 
 
+_GUEST_TEMPLATE_HEADERS = ["Họ tên", "Tuổi", "Số điện thoại", "Nhóm đi cùng", "Ghi chú ăn uống"]
+_GUEST_TEMPLATE_EXAMPLE_ROWS = [
+    ["Nguyễn Văn Long", 35, "0901234567", "Gia đình anh Long", ""],
+    ["Trần Thị Hoa", 33, "0901234568", "Gia đình anh Long", "Ăn chay"],
+    ["Nguyễn Bin", 5, "", "Gia đình anh Long", ""],
+    ["Lê Văn Minh", 28, "0909876543", "", "Dị ứng hải sản"],
+]
+
+
+# ĐẶT TRƯỚC route "/{tour_id}" bên dưới — FastAPI khớp theo thứ tự đăng ký,
+# nếu để sau thì "/tours/guest-list-template" sẽ bị "/{tour_id}" nuốt mất
+# (hiểu "guest-list-template" là 1 tour_id thật, trả 404 sai).
+@router.get("/guest-list-template")
+async def download_guest_list_template(current_user: User = Depends(get_current_user)) -> StreamingResponse:
+    """File Excel mẫu cho HDV tham khảo cột nào nên có khi import danh sách
+    khách (POST /tours/{id}/guests/import, hoặc kèm lúc tạo tour) — không bắt
+    buộc đúng khuôn (agent đọc tự do), nhưng CÀNG NHIỀU cột như Tuổi/Nhóm đi
+    cùng thì AI càng xếp phòng thông minh được (gia đình 3 người → phòng lớn,
+    2 người đi chung → phòng đôi...), xem app/schemas/extraction.py."""
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Danh sách khách"
+    sheet.append(_GUEST_TEMPLATE_HEADERS)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+    for row in _GUEST_TEMPLATE_EXAMPLE_ROWS:
+        sheet.append(row)
+    for col_letter, width in zip("ABCDE", (22, 8, 16, 22, 20)):
+        sheet.column_dimensions[col_letter].width = width
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=mau-danh-sach-khach.xlsx"},
+    )
+
+
 async def _get_tour_or_404(tour_id: str, db: AsyncSession, current_user: User) -> Tour:
     return await get_owned_tour(tour_id, db, current_user, with_relations=True)
 
@@ -204,7 +256,69 @@ async def get_tour(
         created_at=tour.created_at,
         updated_at=tour.updated_at,
         zalo_group_id=tour.zalo_group_id,
+        has_cover_image=bool(tour.cover_image_path),
     )
+
+
+@router.delete("/{tour_id}", status_code=204)
+async def delete_tour(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> None:
+    """Xoá hẳn 1 tour — trước đây KHÔNG có cách nào xoá tour tạo nhầm/trùng
+    (thiếu chức năng, không phải HDV không tìm ra nút). Cho xoá ở MỌI trạng
+    thái kể cả đã gửi (quyết định đã chốt với user) — FE chịu trách nhiệm xác
+    nhận 2 lần trước khi gọi, backend không tự chặn theo status.
+
+    Guests/timeline tự xoá theo (cascade="all, delete-orphan" trên
+    Tour.guests/Tour.timeline, xem app/models/tour.py) — chỉ cần dọn thêm các
+    file đã lưu riêng trên disk (không thuộc DB) như _save_upload/cover-image.
+
+    with_relations=True BẮT BUỘC: cascade delete của SQLAlchemy cần load sẵn
+    guests/timeline TRƯỚC — lazy-load ngầm lúc cascade sẽ lỗi MissingGreenlet
+    trong AsyncSession nếu chưa load."""
+    tour = await get_owned_tour(tour_id, db, current_user, with_relations=True)
+
+    for path in (tour.source_path, tour.guest_list_path, tour.cover_image_path):
+        if path:
+            Path(path).unlink(missing_ok=True)
+
+    await db.delete(tour)
+    await db.commit()
+
+
+_ALLOWED_COVER_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+@router.put("/{tour_id}/cover-image", status_code=204)
+async def set_cover_image(
+    tour_id: str,
+    file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    tour = await get_owned_tour(tour_id, db, current_user)
+    if file.content_type not in _ALLOWED_COVER_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Chỉ nhận ảnh JPEG/PNG/WebP.")
+
+    old_path = tour.cover_image_path
+    saved_path, _ = _save_upload(file, f"{tour_id}_cover")
+    tour.cover_image_path = saved_path
+    await db.commit()
+
+    if old_path:
+        Path(old_path).unlink(missing_ok=True)
+
+
+@router.delete("/{tour_id}/cover-image", status_code=204)
+async def clear_cover_image(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> None:
+    tour = await get_owned_tour(tour_id, db, current_user)
+    old_path = tour.cover_image_path
+    tour.cover_image_path = None
+    await db.commit()
+    if old_path:
+        Path(old_path).unlink(missing_ok=True)
 
 
 @router.put("/{tour_id}/timeline", response_model=TourDetail)
@@ -454,3 +568,112 @@ async def reprocess_tour(
 
     background_tasks.add_task(process_tour, tour.id)
     return TourCreateResponse(id=tour.id, status=tour.status, message="Đang xử lý lại...")
+
+
+# ------------------------------------------------------------- Loại phòng (Phase 3)
+# Tồn kho loại phòng HDV khai báo cho tour (vd "Phòng đơn" x2, "Phòng đôi"
+# x5) — nền tảng cho thuật toán tự động xếp phòng dựa theo travel_group của
+# khách (Phase 4, xem app/models/guest.py, app/models/room_type.py).
+
+
+@router.get("/{tour_id}/room-types", response_model=list[RoomTypeOut])
+async def list_room_types(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[RoomType]:
+    tour = await get_owned_tour(tour_id, db, current_user, with_relations=True)
+    return tour.room_types
+
+
+@router.post("/{tour_id}/room-types", response_model=RoomTypeOut, status_code=201)
+async def create_room_type(
+    tour_id: str,
+    payload: RoomTypeCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RoomType:
+    await get_owned_tour(tour_id, db, current_user)  # 404 sớm nếu tour không tồn tại/không thuộc quyền
+    room_type = RoomType(tour_id=tour_id, **payload.model_dump())
+    db.add(room_type)
+    await db.commit()
+    await db.refresh(room_type)
+    return room_type
+
+
+async def _get_room_type_or_404(tour_id: str, room_type_id: str, db: AsyncSession) -> RoomType:
+    result = await db.execute(
+        select(RoomType).where(RoomType.id == room_type_id, RoomType.tour_id == tour_id)
+    )
+    room_type = result.scalar_one_or_none()
+    if room_type is None:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy loại phòng {room_type_id} trong tour {tour_id}")
+    return room_type
+
+
+@router.put("/{tour_id}/room-types/{room_type_id}", response_model=RoomTypeOut)
+async def update_room_type(
+    tour_id: str,
+    room_type_id: str,
+    payload: RoomTypeUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RoomType:
+    await get_owned_tour(tour_id, db, current_user)
+    room_type = await _get_room_type_or_404(tour_id, room_type_id, db)
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(room_type, field, value)
+
+    await db.commit()
+    await db.refresh(room_type)
+    return room_type
+
+
+@router.delete("/{tour_id}/room-types/{room_type_id}", status_code=204)
+async def delete_room_type(
+    tour_id: str,
+    room_type_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    await get_owned_tour(tour_id, db, current_user)
+    room_type = await _get_room_type_or_404(tour_id, room_type_id, db)
+    await db.delete(room_type)
+    await db.commit()
+
+
+@router.post("/{tour_id}/auto-assign-rooms", response_model=AutoAssignRoomsResponse)
+async def auto_assign_rooms(
+    tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> AutoAssignRoomsResponse:
+    """Chạy thuật toán xếp phòng (app/services/room_assignment.py) — mỗi khách
+    KHÔNG có travel_group tự thành 1 nhóm riêng. Ghi đè room_type_id của MỌI
+    khách trong tour theo kết quả mới nhất (không cộng dồn), KHÔNG đụng
+    room_number (số phòng thật, HDV tự điền)."""
+    tour = await get_owned_tour(tour_id, db, current_user, with_relations=True)
+
+    if not tour.room_types:
+        raise HTTPException(status_code=400, detail="Tour chưa khai báo loại phòng nào — thêm loại phòng trước.")
+    if not tour.guests:
+        raise HTTPException(status_code=400, detail="Tour chưa có khách nào để xếp phòng.")
+
+    result = assign_rooms(tour.guests, tour.room_types)
+    await db.commit()
+
+    return AutoAssignRoomsResponse(
+        assigned=[
+            AssignedGroupOut(
+                group_label=g.group_label,
+                guest_ids=g.guest_ids,
+                room_type_id=g.room_type.id,
+                room_type_name=g.room_type.name,
+            )
+            for g in result.assigned
+        ],
+        unassigned=[
+            UnassignedGroupOut(
+                group_label=g.group_label, guest_ids=g.guest_ids, group_size=g.group_size, reason=g.reason
+            )
+            for g in result.unassigned
+        ],
+    )

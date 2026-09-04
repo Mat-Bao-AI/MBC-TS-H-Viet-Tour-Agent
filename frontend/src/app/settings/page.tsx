@@ -10,15 +10,11 @@ import Link from "next/link";
 import { api, ZaloLoginStatus } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-
-const COMING_SOON_ITEMS = [
-  { label: "Thông báo", icon: "🔔" },
-  { label: "Trợ giúp", icon: "❓" },
-  { label: "Về ứng dụng", icon: "ℹ️" },
-];
+import { useCompanyName } from "@/lib/use-company-name";
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const companyName = useCompanyName();
   const [status, setStatus] = useState<ZaloLoginStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -36,6 +32,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     load();
+    // Poll nhẹ (30s) thay vì chỉ load 1 lần lúc mount — trước đây HDV chỉ biết
+    // mất kết nối Zalo (session bị kick từ điện thoại, hoặc lỗi socket) khi tự
+    // vào lại trang này hoặc khi 1 lần gửi tin thật bị lỗi. Giờ zalo-bridge đã
+    // cập nhật state ngay khi mất kết nối (xem zalo-bridge/src/zaloClient.js),
+    // poll ở đây giúp badge phản ánh đúng mà không cần reload trang.
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   async function handleDisconnect() {
@@ -55,7 +58,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-5 pt-2">
       <div className="flex items-center justify-between lg:hidden">
-        <span className="text-lg font-semibold text-primary">VietTour Agent</span>
+        <span className="text-lg font-semibold text-primary">{companyName}</span>
       </div>
 
       <h1 className="text-xl font-bold">Cài đặt</h1>
@@ -89,49 +92,79 @@ export default function SettingsPage() {
             </Button>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-sm text-destructive">
-              <span className="h-2 w-2 rounded-full bg-destructive" /> Mất kết nối
-            </span>
-            <Link href="/login?next=/settings">
-              <Button size="sm">Kết nối lại qua QR</Button>
-            </Link>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-sm text-destructive">
+                <span className="h-2 w-2 rounded-full bg-destructive" /> Mất kết nối
+              </span>
+              <Link href="/login?next=/settings">
+                <Button size="sm">Kết nối lại qua QR</Button>
+              </Link>
+            </div>
+            {status?.error && (
+              // Lỗi thật đến từ zca-js (thư viện Zalo không chính thức) —
+              // nguyên văn thường là tiếng Anh kỹ thuật (vd "Cannot get scan
+              // result"), lạc tông giữa UI tiếng Việt và không giúp HDV biết
+              // cần làm gì. Hiện thông báo chung dễ hiểu, giữ lỗi gốc ở
+              // `title` để debug khi cần (hover/inspect), không xoá hẳn.
+              <p className="text-xs text-muted-foreground" title={status.error}>
+                Không lấy được kết quả quét QR — thử quét lại.
+              </p>
+            )}
           </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
 
       <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
-        {user?.role === "admin" ? (
+        <Link href="/settings/profile" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
+          <span className="flex items-center gap-3">
+            <span>🧑‍💼</span>
+            Hồ sơ cá nhân
+          </span>
+          <span className="text-muted-foreground">›</span>
+        </Link>
+        {user?.role === "admin" && (
           <Link
             href="/settings/system"
             className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
           >
             <span className="flex items-center gap-3">
               <span>🔒</span>
-              Cài đặt hệ thống (AI, Telegram)
-            </span>
-            <span className="text-muted-foreground">›</span>
-          </Link>
-        ) : (
-          <div className="flex items-center justify-between px-4 py-3 text-sm opacity-60">
-            <span className="flex items-center gap-3">
-              <span>🔒</span>
               Cài đặt hệ thống
             </span>
-            <span className="text-xs text-muted-foreground">Chỉ Admin</span>
-          </div>
-        )}
-        {/* Các mục chưa triển khai — ghi rõ "Sắp có", không giả vờ hoạt động */}
-        {COMING_SOON_ITEMS.map((item) => (
-          <div key={item.label} className="flex items-center justify-between px-4 py-3 text-sm opacity-60">
-            <span className="flex items-center gap-3">
-              <span>{item.icon}</span>
-              {item.label}
+            <span className="flex items-center gap-1.5">
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-bold text-secondary-foreground">
+                Admin
+              </span>
+              <span className="text-muted-foreground">›</span>
             </span>
-            <span className="text-xs text-muted-foreground">Sắp có</span>
-          </div>
-        ))}
+          </Link>
+        )}
+        <Link href="/notifications" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
+          <span className="flex items-center gap-3">
+            <span>🔔</span>
+            Thông báo
+          </span>
+          <span className="text-muted-foreground">›</span>
+        </Link>
+        <Link href="/help" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
+          <span className="flex items-center gap-3">
+            <span>❓</span>
+            Trợ giúp
+          </span>
+          <span className="text-muted-foreground">›</span>
+        </Link>
+        <Link
+          href="/settings/about"
+          className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
+        >
+          <span className="flex items-center gap-3">
+            <span>ℹ️</span>
+            Về ứng dụng
+          </span>
+          <span className="text-muted-foreground">›</span>
+        </Link>
       </div>
 
       <Button

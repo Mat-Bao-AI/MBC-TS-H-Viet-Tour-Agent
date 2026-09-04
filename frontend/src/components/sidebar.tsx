@@ -6,38 +6,50 @@
 // projects/.../screens/2d31fc623f0449cb85a7766b33acc999): icon Material
 // Symbols, pill active state, badge "Admin" cam cho mục Cài đặt hệ thống.
 //
-// 1 chỗ CHỦ ĐỘNG khác bản Stitch gốc: avatar dùng vòng tròn initials thay vì
-// ảnh chân dung — hệ thống chưa có tính năng upload ảnh đại diện, không giả
-// ảnh người dùng. Dòng phụ dưới tên dùng vai trò thật (Admin/HDV) thay vì
-// nhãn tĩnh "Hồ sơ cá nhân" — chưa có trang hồ sơ để link tới (Phase 3).
+// Avatar dùng ảnh thật đã upload (UserAvatar tự fallback initials nếu chưa
+// có, xem components/user-avatar.tsx) — link tới /settings/profile để sửa.
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserOut } from "@/lib/api";
+import { api, API_BASE, CompanyInfo, UserOut } from "@/lib/api";
+import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Tổng quan", icon: "dashboard" },
-  { href: "/", label: "Chuyến đi", icon: "explore" },
-  { href: "/settings", label: "Cài đặt", icon: "settings" },
+  { href: "/dashboard", label: "Tổng quan", icon: "dashboard", tourId: "nav-dashboard-desktop" },
+  { href: "/", label: "Chuyến đi", icon: "explore", tourId: "nav-tours-desktop" },
+  { href: "/settings", label: "Cài đặt", icon: "settings", tourId: "nav-settings-desktop" },
 ] as const;
 
 export function Sidebar({ user, onLogout }: { user: UserOut; onLogout: () => void }) {
   const pathname = usePathname();
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
+
+  useEffect(() => {
+    api.getCompanyInfo().then(setCompany).catch(() => {});
+  }, []);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-border bg-card px-3 py-6 lg:flex">
-      <div className="mb-6 px-3">
-        <span className="text-lg font-bold text-primary">VietTour Agent</span>
-        <p className="mt-1 text-xs text-muted-foreground">Trợ lý điều hành tour</p>
+      <div className="mb-6 flex items-center gap-2 px-3">
+        {company?.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={`${API_BASE}${company.logo_url}`} alt="" className="h-8 w-8 rounded object-contain" />
+        )}
+        <div>
+          <span className="text-lg font-bold text-primary">{company?.name ?? "VietTour Agent"}</span>
+          <p className="mt-1 text-xs text-muted-foreground">Trợ lý điều hành tour</p>
+        </div>
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ href, label, icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon, tourId }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
+              data-tour={tourId}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-colors",
                 active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"
@@ -74,30 +86,27 @@ export function Sidebar({ user, onLogout }: { user: UserOut; onLogout: () => voi
         )}
       </nav>
 
-      <div className="mt-auto flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-          {initials(user.full_name)}
-        </div>
+      <Link
+        href="/settings/profile"
+        className="mt-auto flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3 hover:bg-muted"
+      >
+        <UserAvatar userId={user.id} fullName={user.full_name} hasAvatar={user.has_avatar} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{user.full_name}</p>
           <p className="truncate text-xs text-muted-foreground">{user.role === "admin" ? "Admin" : "Hướng dẫn viên"}</p>
         </div>
         <button
-          onClick={onLogout}
+          onClick={(e) => {
+            e.preventDefault();
+            onLogout();
+          }}
           aria-label="Đăng xuất"
           title="Đăng xuất"
-          className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+          className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
           <span className="material-symbols-outlined text-xl">logout</span>
         </button>
-      </div>
+      </Link>
     </aside>
   );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const last = parts[parts.length - 1]?.[0] ?? "";
-  const first = parts[0]?.[0] ?? "";
-  return (first + last).toUpperCase();
 }

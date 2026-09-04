@@ -33,7 +33,9 @@ class User(Base):
     # Liên hệ phụ, tuỳ chọn — hiển thị ở hồ sơ, KHÔNG dùng cho auth.
     facebook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     zalo_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    telegram_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Ảnh đại diện HDV — tự upload qua PUT /auth/me/avatar (Phase 3), hiển thị
+    # ở Sidebar/hồ sơ. Lưu file disk cùng cơ chế cover_image_path (Tour).
+    avatar_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Admin khoá tài khoản HDV bằng cờ này thay vì xoá (giữ lại tour đã tạo).
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -44,3 +46,10 @@ class User(Base):
     )
 
     tours: Mapped[list["Tour"]] = relationship("Tour", back_populates="owner")
+
+    @property
+    def has_avatar(self) -> bool:
+        """Property thường (không phải cột DB) — Pydantic from_attributes đọc
+        được qua getattr như field bình thường, xem app/schemas/user.py
+        UserOut.has_avatar. Không lộ đường dẫn file thật ra API."""
+        return bool(self.avatar_path)

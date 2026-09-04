@@ -105,6 +105,21 @@ export function startQrLogin() {
       state.api = api;
       state.qrDataUrl = null;
       try {
+        // Trước đây chỉ gọi listener.start() mà không lắng nghe sự kiện nào —
+        // khi tài khoản bị đăng xuất từ điện thoại (KickConnection) hoặc mất
+        // socket, state vẫn giữ "success" tới khi có lệnh gửi tin thật bị lỗi
+        // mới lộ ra. zca-js Listener tự emit "closed"/"error" ngay khi mất kết
+        // nối thật (xem node_modules/zca-js/dist/apis/listen.d.ts) — lắng nghe
+        // để cập nhật state ngay, cho GET /login/status phản ánh đúng thời gian
+        // thực thay vì phải chờ 1 request gửi tin thất bại mới biết.
+        api.listener?.on?.("closed", (code, reason) => {
+          state.status = "error";
+          state.error = `Mất kết nối Zalo (code ${code}): ${reason || "phiên đã đóng"} — cần đăng nhập lại qua QR.`;
+        });
+        api.listener?.on?.("error", (err) => {
+          state.status = "error";
+          state.error = err?.message || String(err);
+        });
         api.listener?.start?.();
       } catch (err) {
         console.error("[zalo-bridge] Không start được listener (không chặn gửi tin 1 chiều):", err);
@@ -152,9 +167,46 @@ function requireLoggedIn() {
   return state.api;
 }
 
+// So khớp SĐT bỏ qua khác biệt định dạng (0xxx / 84xxx / +84xxx) — lấy 9 số
+// cuối (đủ phân biệt số di động VN, không quan tâm prefix quốc gia/số 0 đầu).
+function last9Digits(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  return digits.slice(-9);
+}
+
 export async function findUserByPhone(phoneNumber) {
   const api = requireLoggedIn();
-  return api.findUser(phoneNumber);
+  try {
+    const found = await api.findUser(phoneNumber);
+    if (found) return found;
+  } catch (err) {
+    // ⚠️ PHÁT HIỆN QUAN TRỌNG (2026-09-03, sau khi user xác nhận 2 tài khoản
+    // ĐÃ là bạn bè và nhắn tin bình thường được, nhưng findUser vẫn lỗi):
+    // API friend/profile/get (mà findUser gọi) phụ thuộc setting RIÊNG của
+    // NGƯỜI NHẬN — "Ai có thể tìm tôi qua số điện thoại" (UserSetting.
+    // add_friend_via_phone trong zca-js) — TÁCH BIỆT hoàn toàn với việc đã
+    // là bạn bè hay không, và tách biệt với "chặn tin nhắn người lạ". Tắt
+    // riêng mục này (dù đã kết bạn) làm findUser lỗi hẳn (ném exception có
+    // error_code + error_message thật từ Zalo, KHÔNG phải trường hợp
+    // "không tìm thấy" êm ái mà zca-js tự xử lý nội bộ — xem
+    // node_modules/zca-js/dist/apis/findUser.js, code lỗi 216). Không coi
+    // lỗi này là "không tìm thấy" ngay — thử fallback bên dưới trước.
+    console.error(`[zalo-bridge] findUser('${phoneNumber}') lỗi (có thể do privacy tìm-qua-SĐT), thử fallback qua danh sách bạn bè:`, err?.message || err);
+  }
+
+  // Fallback: khách đã là BẠN BÈ (trường hợp thực tế phổ biến nhất với HDV —
+  // gửi tin cho khách quen) thì luôn nằm trong getAllFriends() bất kể setting
+  // tìm-qua-SĐT của họ là gì — API đó không bị giới hạn bởi setting đó.
+  try {
+    const friends = await api.getAllFriends();
+    const target = last9Digits(phoneNumber);
+    const match = (friends || []).find((f) => last9Digits(f.phoneNumber) === target);
+    if (!match) return null;
+    return { uid: match.userId, display_name: match.displayName || match.zaloName };
+  } catch (err) {
+    console.error(`[zalo-bridge] Fallback getAllFriends() lỗi khi tìm SĐT '${phoneNumber}':`, err?.message || err);
+    return null;
+  }
 }
 
 export async function sendTextMessage(zaloId, text, isGroup = false) {

@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -12,19 +12,10 @@ from app.core.database import Base
 
 class DispatchStatus(str, enum.Enum):
     PENDING = "pending"  # chưa gửi
-    SENT = "sent"  # đã gửi qua kênh đã chọn (Zalo/Telegram)
+    SENT = "sent"  # đã gửi qua Zalo
     READ = "read"  # khách đã đọc (HDV tự đánh dấu — chưa có webhook seen-status tự động)
     CONFIRMED = "confirmed"  # khách xác nhận tham gia (HDV tự đánh dấu)
-    FAILED = "failed"  # gửi lỗi (vd. không tìm được id kênh từ SĐT)
-
-
-class NotificationChannel(str, enum.Enum):
-    """Kênh HDV chọn để gửi thông báo cho khách này — mỗi khách 1 kênh
-    (không multi-channel per-guest, xem docs/PLAN — quyết định giữ đơn giản
-    khi thêm Telegram/Web link cạnh Zalo)."""
-
-    ZALO = "zalo"
-    TELEGRAM = "telegram"
+    FAILED = "failed"  # gửi lỗi (vd. không tìm được zalo_id từ SĐT)
 
 
 class Guest(Base):
@@ -38,20 +29,26 @@ class Guest(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     zalo_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # ID chat Telegram của khách — chỉ có sau khi khách tự bấm deep-link
-    # t.me/<bot>?start=<mã_khách> và bot ghi nhận qua webhook (xem
-    # app/services/notification/telegram_sender.py). Bot KHÔNG có cách nào
-    # tự tìm ra chat_id từ SĐT như Zalo — bắt buộc khách phải chủ động bấm
-    # trước, đây là giới hạn thật của nền tảng Telegram, không phải thiếu sót.
-    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    notification_channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel, native_enum=False, length=20),
-        default=NotificationChannel.ZALO,
-        nullable=False,
-    )
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Nhãn nhóm đi cùng — khách trong CÙNG 1 tour có cùng giá trị này được coi
+    # là 1 nhóm đi chung (gia đình/cặp đôi/bạn bè...), dùng để xếp phòng
+    # thông minh (Phase 3-4, xem docs/PLAN). Agent trích xuất tự đặt nhãn theo
+    # suy luận từ văn bản (vd "anh Long, chị Hoa và bé Bin" → cùng 1 nhãn);
+    # HDV có thể tự sửa lại qua UI. Để trống = đi 1 mình / chưa xác định nhóm.
+    travel_group: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     seat_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Số phòng THẬT — HDV tự điền tay sau khi khách sạn xác nhận lúc check-in.
+    # KHÁC room_type_id bên dưới — thuật toán tự động xếp phòng (Phase 4)
+    # KHÔNG BAO GIỜ đụng tới field này.
     room_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Loại phòng GỢI Ý do thuật toán tự động xếp phòng gán (app/services/
+    # room_assignment.py, POST /tours/{id}/auto-assign-rooms) — chỉ là đề
+    # xuất, không phải số phòng thật. SET NULL khi loại phòng bị xoá (không
+    # xoá khách theo) — mỗi lần chạy lại thuật toán sẽ tính lại và ghi đè.
+    room_type_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("room_types.id", ondelete="SET NULL"), nullable=True
+    )
     dietary_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     dispatch_status: Mapped[DispatchStatus] = mapped_column(
@@ -72,3 +69,4 @@ class Guest(Base):
     )
 
     tour: Mapped["Tour"] = relationship("Tour", back_populates="guests")
+    room_type: Mapped["RoomType | None"] = relationship("RoomType")

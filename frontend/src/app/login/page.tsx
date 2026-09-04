@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { api, ZaloLoginStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { useCompanyName } from "@/lib/use-company-name";
 
 const STEPS = ["Mở Zalo trên điện thoại", "Vào phần Quét QR", "Quét mã trên màn hình này"];
 
@@ -27,6 +28,7 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/settings";
+  const companyName = useCompanyName();
 
   const [status, setStatus] = useState<ZaloLoginStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ function LoginPageInner() {
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
           ←
         </button>
-        <span className="font-semibold text-primary">VietTour Agent</span>
+        <span className="font-semibold text-primary">{companyName}</span>
       </div>
 
       <div className="flex flex-col items-center gap-1 text-center">

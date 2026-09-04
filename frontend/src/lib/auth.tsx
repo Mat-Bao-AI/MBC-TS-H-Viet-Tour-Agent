@@ -13,6 +13,9 @@ type AuthState = {
   loading: boolean; // đang xác thực token đã lưu lúc mount — chưa biết kết quả
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Gọi lại sau khi HDV tự sửa hồ sơ/avatar (Phase 3, /settings/profile) —
+   * để Sidebar/AppChrome phản ánh ngay, không cần reload trang. */
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -45,7 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  const refreshUser = useCallback(async () => {
+    setUser(await api.getMe());
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

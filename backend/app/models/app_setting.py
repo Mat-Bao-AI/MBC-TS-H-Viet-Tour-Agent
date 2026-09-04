@@ -1,6 +1,5 @@
-"""AppSetting — cấu hình đơn giản dạng key-value Admin nhập qua UI (Telegram
-bot token/webhook secret, provider AI ưu tiên...), thay cho việc phải sửa
-.env + restart container. Giá trị LUÔN lưu mã hoá (Fernet, xem
+"""AppSetting — cấu hình đơn giản dạng key-value Admin nhập qua UI (provider
+AI ưu tiên...), thay cho việc phải sửa .env + restart container. Giá trị LUÔN lưu mã hoá (Fernet, xem
 app/core/crypto.py) kể cả khi bản thân giá trị không hẳn là bí mật (vd tên
 provider ưu tiên) — đơn giản hơn phải phân loại field nào cần mã hoá field
 nào không, không có nhược điểm thực tế nào khi mã hoá dư.

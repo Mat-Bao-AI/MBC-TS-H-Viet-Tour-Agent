@@ -21,3 +21,7 @@ class PublicTourView(BaseModel):
     ready: bool
     timeline_events: list[TimelineEventSchema]
     weather: list[EventWeather] = []
+    # Đường dẫn TƯƠNG ĐỐI tới GET /api/v1/public/tours/{id}/cover — None nếu
+    # HDV chưa upload ảnh bìa. FE tự ghép với API base để ra URL tuyệt đối
+    # (bắt buộc cho <meta property="og:image">, xem frontend/src/app/t/[id]/page.tsx).
+    cover_image_url: str | None = None

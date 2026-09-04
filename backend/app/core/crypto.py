@@ -1,6 +1,6 @@
 """crypto.py — mã hoá tại chỗ (encrypt-at-rest) cho config nhạy cảm lưu DB
-(AI provider key, Telegram bot token — xem app/core/dynamic_config.py) bằng
-Fernet (AES-128-CBC + HMAC, chuẩn thư viện `cryptography`).
+(AI provider key — xem app/core/dynamic_config.py) bằng Fernet (AES-128-CBC +
+HMAC, chuẩn thư viện `cryptography`).
 
 Giới hạn THẬT cần hiểu rõ, không tô hồng: khoá mã hoá (CONFIG_ENCRYPTION_KEY)
 vẫn phải nằm ở đâu đó ngoài DB để giải mã được — không có thiết kế nào tránh

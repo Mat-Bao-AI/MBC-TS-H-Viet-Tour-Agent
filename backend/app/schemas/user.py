@@ -15,8 +15,8 @@ class UserOut(BaseModel):
     role: UserRole
     facebook_url: str | None
     zalo_link: str | None
-    telegram_username: str | None
     is_active: bool
+    has_avatar: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -28,3 +28,13 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class UserSelfUpdateRequest(BaseModel):
+    """HDV tự sửa hồ sơ CHÍNH MÌNH — cố tình KHÔNG có role/is_active (đó là
+    quyền Admin, xem app/schemas/admin_user.py UserAdminUpdateRequest)."""
+
+    full_name: str | None = None
+    phone_number: str | None = None
+    facebook_url: str | None = None
+    zalo_link: str | None = None

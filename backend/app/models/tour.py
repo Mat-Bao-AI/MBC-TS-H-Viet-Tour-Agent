@@ -30,6 +30,12 @@ class Tour(Base):
     guest_list_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     guest_list_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     process_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # Ảnh bìa tour — tuỳ chọn, dùng cho Open Graph preview khi dán link công
+    # khai (/t/<id>) vào Zalo/Messenger, và hiển thị trên chính trang đó. Lưu
+    # đường dẫn disk cùng cơ chế với source_path/guest_list_path (xem
+    # _save_upload trong app/api/v1/tours.py), phục vụ qua
+    # GET /api/v1/public/tours/{id}/cover (app/api/v1/public.py).
+    cover_image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # ID nhóm Zalo đã tạo cho tour này (qua zca-js createGroup) — null nếu
     # HDV chưa bấm "Tạo nhóm Zalo". 1 tour chỉ tạo nhóm 1 lần, các lần gửi
     # nhóm sau tái dùng ID này.
@@ -54,5 +60,8 @@ class Tour(Base):
     )
     timeline: Mapped["Timeline | None"] = relationship(
         "Timeline", back_populates="tour", uselist=False, cascade="all, delete-orphan"
+    )
+    room_types: Mapped[list["RoomType"]] = relationship(
+        "RoomType", back_populates="tour", cascade="all, delete-orphan"
     )
     owner: Mapped["User | None"] = relationship("User", back_populates="tours")

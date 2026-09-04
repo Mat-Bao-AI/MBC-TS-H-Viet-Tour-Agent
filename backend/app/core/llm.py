@@ -12,6 +12,7 @@ tài khoản cho tới khi restart. Chi phí build lại (chỉ tạo object Pyt
 chưa gọi network) không đáng kể so với rủi ro đó.
 """
 
+import asyncio
 import logging
 import re
 
@@ -35,9 +36,15 @@ def _supports_custom_temperature(*names: str) -> bool:
 
 
 async def _build_gemini(temperature: float) -> ChatGoogleGenerativeAI:
+    # gemini-1.5-flash bị Google khai tử hoàn toàn từ 29/09/2025; thử thay
+    # gemini-2.5-flash cũng bị chặn với thông báo "no longer available to
+    # new users" — Google đích thân khuyến nghị gemini-3.6-flash trong chính
+    # lỗi trả về (2026-09-04). Google đổi tên/gỡ model khá thường xuyên —
+    # xem tính năng "Kiểm tra kết nối" ở /settings/system (tab AI) để tự
+    # phát hiện lần đổi tiếp theo thay vì đợi tour thật lỗi mới biết.
     api_key = await dynamic_config.get_gemini_api_key()
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-3.6-flash",
         google_api_key=api_key,
         temperature=temperature,
     )
@@ -91,6 +98,32 @@ async def log_llm_provider_status() -> None:
         )
     else:
         logger.info("LLM provider đang dùng: %s", providers[0])
+
+
+async def test_provider(provider: str) -> tuple[bool, str]:
+    """Gọi thử THẬT 1 request nhỏ tới provider đang cấu hình (dùng đúng
+    builder ở trên — đảm bảo test khớp 100% với lúc chạy thật, khác kiểu
+    "key có đúng định dạng không" hời hợt). Bug ngày 2026-09-04 (model
+    gemini-1.5-flash rồi gemini-2.5-flash lần lượt bị Google gỡ, Admin chỉ
+    phát hiện khi 1 tour thật lỗi) là lý do hàm này tồn tại — gọi được ngay
+    lúc thêm/sửa key, không cần đợi tour thật chạy mới biết."""
+    builder = _PROVIDER_BUILDERS.get(provider)
+    if builder is None:
+        return False, f"Provider '{provider}' không hợp lệ."
+
+    try:
+        model = await builder(temperature=0)
+        # 30s — lần gọi đầu tiên tốn thêm ~15-20s chỉ để thiết lập kết nối
+        # (DNS/TLS/gRPC channel), đo thực tế thấy timeout 20s báo lỗi giả dù
+        # key hoàn toàn đúng. Các lần gọi sau (connection đã warm) nhanh hơn
+        # nhiều, nhưng Admin chỉ bấm nút này không thường xuyên nên ưu tiên
+        # đúng hơn là nhanh.
+        await asyncio.wait_for(model.ainvoke("ping"), timeout=30)
+        return True, "Kết nối thành công — key/cấu hình hoạt động tốt."
+    except asyncio.TimeoutError:
+        return False, "Quá thời gian chờ (30s) — kiểm tra lại mạng hoặc endpoint."
+    except Exception as exc:  # noqa: BLE001 — muốn hiện NGUYÊN VĂN lỗi thật cho Admin đọc
+        return False, str(exc)
 
 
 async def get_structured_llm(schema, temperature: float = 0.2):

@@ -11,8 +11,9 @@
 // design tokens đã có sẵn trong globals.css (bg-background/text-primary/
 // border-border/bg-card khớp đúng bg-surface/text-primary/border-outline-
 // variant/bg-surface-container-lowest bên Stitch, cùng 1 design system).
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { api, API_BASE, CompanyInfo } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export default function SignInPage() {
@@ -34,6 +35,11 @@ function SignInPageInner() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
+
+  useEffect(() => {
+    api.getCompanyInfo().then(setCompany).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,7 +59,11 @@ function SignInPageInner() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground antialiased md:p-10">
       <main className="flex w-full max-w-md flex-1 flex-col items-center justify-center">
         <header className="mb-8 flex w-full flex-col items-center text-center">
-          <h1 className="mb-1 text-2xl font-bold tracking-tight text-primary">VietTour Agent</h1>
+          {company?.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`${API_BASE}${company.logo_url}`} alt="" className="mb-3 h-14 w-14 object-contain" />
+          )}
+          <h1 className="mb-1 text-2xl font-bold tracking-tight text-primary">{company?.name ?? "VietTour Agent"}</h1>
           <p className="text-sm text-muted-foreground">Đăng nhập để quản lý tour</p>
         </header>
 

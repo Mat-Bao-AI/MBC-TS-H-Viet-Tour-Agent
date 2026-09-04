@@ -22,7 +22,9 @@ async def get_owned_tour(
 ) -> Tour:
     query = select(Tour).where(Tour.id == tour_id)
     if with_relations:
-        query = query.options(selectinload(Tour.guests), selectinload(Tour.timeline))
+        query = query.options(
+            selectinload(Tour.guests), selectinload(Tour.timeline), selectinload(Tour.room_types)
+        )
 
     result = await db.execute(query)
     tour = result.scalar_one_or_none()

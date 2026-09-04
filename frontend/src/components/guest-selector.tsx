@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { api, Guest } from "@/lib/api";
+import { api, Guest, RoomType } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,19 @@ type Props = {
   onPreview?: (guestId: string) => void;
   /** Gọi lại sau khi thêm/xoá/import khách thành công — parent tự fetch lại tour. */
   onGuestsChanged: () => void;
+  /** Để tra tên loại phòng từ guest.room_type_id (gợi ý từ Phase 4) — optional, không truyền thì ẩn cột. */
+  roomTypes?: RoomType[];
 };
 
-const EMPTY_FORM = { full_name: "", phone_number: "", seat_number: "", room_number: "", dietary_note: "" };
+const EMPTY_FORM = {
+  full_name: "",
+  phone_number: "",
+  age: "",
+  travel_group: "",
+  seat_number: "",
+  room_number: "",
+  dietary_note: "",
+};
 
 export function GuestSelector({
   tourId,
@@ -28,8 +38,10 @@ export function GuestSelector({
   onToggleAll,
   onPreview,
   onGuestsChanged,
+  roomTypes = [],
 }: Props) {
   const allSelected = guests.length > 0 && guests.every((g) => selectedIds.has(g.id));
+  const roomTypeName = (id: string | null) => roomTypes.find((rt) => rt.id === id)?.name ?? null;
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -42,6 +54,24 @@ export function GuestSelector({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+
+  async function handleDownloadTemplate() {
+    setDownloadingTemplate(true);
+    try {
+      const blob = await api.downloadGuestListTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "mau-danh-sach-khach.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
 
   async function handleAddSubmit() {
     if (!form.full_name.trim()) {
@@ -51,9 +81,12 @@ export function GuestSelector({
     setSaving(true);
     setAddError(null);
     try {
+      const age = form.age.trim() ? parseInt(form.age.trim(), 10) : undefined;
       await api.addGuest(tourId, {
         full_name: form.full_name.trim(),
         phone_number: form.phone_number.trim() || undefined,
+        age: age !== undefined && !Number.isNaN(age) ? age : undefined,
+        travel_group: form.travel_group.trim() || undefined,
         seat_number: form.seat_number.trim() || undefined,
         room_number: form.room_number.trim() || undefined,
         dietary_note: form.dietary_note.trim() || undefined,
@@ -112,6 +145,15 @@ export function GuestSelector({
         >
           {importing ? "Đang nhập..." : "Nhập danh sách (Excel/TXT)"}
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={downloadingTemplate}
+          onClick={handleDownloadTemplate}
+        >
+          {downloadingTemplate ? "Đang tải..." : "📄 Tải file mẫu"}
+        </Button>
         <input
           ref={fileInputRef}
           type="file"
@@ -135,9 +177,12 @@ export function GuestSelector({
                 <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
               </th>
               <th className="px-3 py-2">Khách</th>
+              <th className="px-3 py-2">Tuổi</th>
               <th className="px-3 py-2">SĐT</th>
+              <th className="px-3 py-2">Nhóm đi cùng</th>
               <th className="px-3 py-2">Ghế</th>
               <th className="px-3 py-2">Phòng</th>
+              <th className="px-3 py-2">Loại phòng gợi ý</th>
               <th className="px-3 py-2">Trạng thái gửi</th>
               <th className="px-3 py-2" />
             </tr>
@@ -149,9 +194,12 @@ export function GuestSelector({
                   <input type="checkbox" checked={selectedIds.has(guest.id)} onChange={() => onToggle(guest.id)} />
                 </td>
                 <td className="px-3 py-2 font-medium">{guest.full_name}</td>
+                <td className="px-3 py-2 text-muted-foreground">{guest.age ?? "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">{guest.phone_number ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{guest.travel_group ?? "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">{guest.seat_number ?? "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">{guest.room_number ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{roomTypeName(guest.room_type_id) ?? "—"}</td>
                 <td className="px-3 py-2">
                   <StatusBadge status={guest.dispatch_status} />
                 </td>
@@ -178,7 +226,7 @@ export function GuestSelector({
             ))}
             {guests.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
                   Chưa có khách nào — bấm "+ Thêm khách" để nhập tay, hoặc "Nhập danh sách" để tải file lên.
                 </td>
               </tr>
@@ -208,6 +256,19 @@ export function GuestSelector({
                 value={form.phone_number}
                 onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
               />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Tuổi"
+                  type="number"
+                  value={form.age}
+                  onChange={(e) => setForm({ ...form, age: e.target.value })}
+                />
+                <Input
+                  placeholder="Nhóm đi cùng (vd Gia đình anh Long)"
+                  value={form.travel_group}
+                  onChange={(e) => setForm({ ...form, travel_group: e.target.value })}
+                />
+              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Số ghế"

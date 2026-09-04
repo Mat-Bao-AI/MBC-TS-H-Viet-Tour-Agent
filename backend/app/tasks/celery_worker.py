@@ -1,9 +1,8 @@
-"""Celery worker — hàng đợi gửi tin nhắn tuần tự (Zalo/Telegram/...).
+"""Celery worker — hàng đợi gửi tin nhắn Zalo tuần tự.
 
 Chạy tuần tự + rate_limit thay vì gửi song song toàn bộ khách cùng lúc: giảm
-rủi ro bị nền tảng (Zalo, Telegram) đánh dấu spam khi dispatch cho đoàn đông
-khách. Gửi qua app.services.notification (interface chung mọi kênh) — task
-không biết/không cần biết Zalo hay Telegram, xem notification/base.py.
+rủi ro bị Zalo đánh dấu spam khi dispatch cho đoàn đông khách. Gửi qua
+app.services.notification (interface chung), xem notification/base.py.
 """
 
 from datetime import datetime
@@ -15,7 +14,7 @@ from app.core.config import get_settings
 from app.core.database import SyncSessionLocal
 from app.models.guest import DispatchStatus, Guest
 from app.models.timeline_event import Timeline
-from app.models.tour import Tour
+from app.models.tour import Tour, TourStatus
 from app.schemas.timeline import TimelineEventSchema
 from app.services.notification import NotificationError, get_sender
 
@@ -65,7 +64,7 @@ def dispatch_guest_message(guest_id: str) -> dict:
         # try/except khiến task fail âm thầm sau 3 lần retry, dispatch_status
         # kẹt "pending" mãi mãi) đều được ghi vào dispatch_error.
         try:
-            sender = get_sender(guest.notification_channel)
+            sender = get_sender()
             recipient_id = sender.resolve_recipient(guest)
             session.commit()
             message_text = format_guest_message(tour, events, guest)
@@ -79,6 +78,11 @@ def dispatch_guest_message(guest_id: str) -> dict:
         guest.dispatch_status = DispatchStatus.SENT
         guest.dispatch_error = None
         guest.last_dispatched_at = datetime.utcnow()
+        # Lần gửi thành công ĐẦU TIÊN của tour — trước đây KHÔNG có chỗ nào
+        # set TourStatus.DISPATCHED, tour kẹt vĩnh viễn ở "Chờ duyệt" (review)
+        # dù đã gửi hết cho khách (bug thật, không phải HDV thao tác sai).
+        if tour.status == TourStatus.REVIEW:
+            tour.status = TourStatus.DISPATCHED
         session.commit()
 
         return {"ok": True, "guest_id": guest_id}
@@ -101,8 +105,10 @@ def dispatch_quick_update_message(guest_id: str, message_text: str) -> dict:
         if guest is None:
             return {"ok": False, "error": f"Không tìm thấy guest {guest_id}"}
 
+        tour = session.get(Tour, guest.tour_id)
+
         try:
-            sender = get_sender(guest.notification_channel)
+            sender = get_sender()
             recipient_id = sender.resolve_recipient(guest)
             session.commit()
             sender.send(recipient_id, message_text)
@@ -115,6 +121,11 @@ def dispatch_quick_update_message(guest_id: str, message_text: str) -> dict:
         guest.dispatch_error = None
         if guest.dispatch_status == DispatchStatus.PENDING:
             guest.dispatch_status = DispatchStatus.SENT
+        # Cập nhật nhanh cũng có thể là lần gửi ĐẦU TIÊN của tour (HDV gửi tin
+        # khẩn trước khi bấm "Gửi thông báo toàn đoàn") — cùng logic tự chuyển
+        # trạng thái như dispatch_guest_message ở trên.
+        if tour is not None and tour.status == TourStatus.REVIEW:
+            tour.status = TourStatus.DISPATCHED
         session.commit()
 
         return {"ok": True, "guest_id": guest_id}

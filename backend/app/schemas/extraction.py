@@ -12,6 +12,16 @@ class ExtractedGuest(BaseModel):
     phone_number: str | None = Field(
         default=None, description="Số điện thoại nếu tài liệu có, giữ nguyên định dạng gốc"
     )
+    age: int | None = Field(default=None, description="Tuổi nếu tài liệu có ghi rõ hoặc suy ra được (vd 'bé Bin, 5 tuổi')")
+    travel_group: str | None = Field(
+        default=None,
+        description=(
+            "Nhãn NGẮN GỌN cho nhóm đi cùng — đặt CÙNG 1 nhãn cho những khách rõ ràng đi chung "
+            "(gia đình, cặp đôi, nhóm bạn được liệt kê/nhắc tới cùng nhau trong tài liệu). "
+            "Vd 'Gia đình anh Long' cho cả 3 người anh Long/chị Hoa/bé Bin nếu văn bản cho thấy họ đi cùng nhau. "
+            "Để trống nếu tài liệu KHÔNG có gợi ý gì về việc đi cùng ai — KHÔNG tự suy đoán/bịa nhóm khi không có căn cứ."
+        ),
+    )
     seat_number: str | None = Field(default=None, description="Số ghế xe/máy bay nếu có")
     room_number: str | None = Field(default=None, description="Số phòng khách sạn nếu có")
     dietary_note: str | None = Field(

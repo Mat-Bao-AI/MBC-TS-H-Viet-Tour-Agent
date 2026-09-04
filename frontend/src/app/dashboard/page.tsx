@@ -18,27 +18,12 @@ import { api, DashboardSummary, ZaloLoginStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
 import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
-import { parseApiDate, tripPhase, TRIP_PHASE_LABEL } from "@/lib/utils";
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - parseApiDate(iso).getTime();
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return "vừa xong";
-  if (mins < 60) return `${mins} phút trước`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} giờ trước`;
-  return `${Math.round(hours / 24)} ngày trước`;
-}
-
-// Icon Material Symbols khớp icon-timeline trong bản Stitch gốc — chỉ 3
-// loại hoạt động thật hệ thống có (xem ghi chú đầu file).
-const ACTIVITY_MATERIAL_ICON: Record<string, string> = {
-  tour_created: "add_task",
-  guest_dispatched: "send",
-  tour_failed: "error",
-};
+import { ActivityTimeline } from "@/components/activity-timeline";
+import { tripPhase, TRIP_PHASE_LABEL } from "@/lib/utils";
+import { useCompanyName } from "@/lib/use-company-name";
 
 export default function DashboardPage() {
+  const companyName = useCompanyName();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [zaloStatus, setZaloStatus] = useState<ZaloLoginStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,33 +40,23 @@ export default function DashboardPage() {
 
   const activityList = summary && summary.recent_activities.length > 0 && (
     <div className="rounded-xl border border-border bg-card p-4">
-      <h3 className="mb-3 flex items-center gap-2 border-b border-border pb-2 text-base font-bold">
-        <span className="material-symbols-outlined text-primary">history</span>
-        Hoạt động gần đây
-      </h3>
-      <div className="relative flex flex-col gap-5 pl-1">
-        <div className="absolute bottom-2 left-4 top-2 w-px bg-border" />
-        {summary.recent_activities.map((a, i) => (
-          <div key={i} className="relative z-10 flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-card bg-primary/15">
-              <span className="material-symbols-outlined text-base text-primary">
-                {ACTIVITY_MATERIAL_ICON[a.type] ?? "notifications"}
-              </span>
-            </div>
-            <div>
-              <p className="text-sm">{a.text}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{timeAgo(a.timestamp)}</p>
-            </div>
-          </div>
-        ))}
+      <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
+        <h3 className="flex items-center gap-2 text-base font-bold">
+          <span className="material-symbols-outlined text-primary">history</span>
+          Hoạt động gần đây
+        </h3>
+        <Link href="/notifications" className="text-xs text-primary hover:underline">
+          Xem tất cả
+        </Link>
       </div>
+      <ActivityTimeline activities={summary.recent_activities} />
     </div>
   );
 
   return (
     <div className="flex flex-col gap-5 pt-2">
       <div className="flex items-center justify-between lg:hidden">
-        <span className="text-lg font-semibold text-primary">VietTour Agent</span>
+        <span className="text-lg font-semibold text-primary">{companyName}</span>
       </div>
 
       <div>
@@ -98,7 +73,7 @@ export default function DashboardPage() {
       {summary && !tour && (
         <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
           Chưa có tour nào.{" "}
-          <Link href="/tours/create" className="text-primary underline">
+          <Link href="/tours/create" data-tour="create-tour-cta" className="text-primary underline">
             Tạo tour đầu tiên
           </Link>
           .

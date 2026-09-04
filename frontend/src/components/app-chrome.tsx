@@ -23,6 +23,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BottomNav } from "@/components/bottom-nav";
 import { LlmProviderBanner } from "@/components/llm-provider-banner";
+import { OnboardingTour } from "@/components/onboarding-tour";
 import { Sidebar } from "@/components/sidebar";
 import { useAuth } from "@/lib/auth";
 
@@ -67,6 +68,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <LlmProviderBanner />
+      <OnboardingTour />
       <Sidebar user={user} onLogout={logout} />
       <div className="lg:pl-64">
         {/* Thanh user/đăng xuất — chỉ mobile, desktop đã có trong Sidebar */}

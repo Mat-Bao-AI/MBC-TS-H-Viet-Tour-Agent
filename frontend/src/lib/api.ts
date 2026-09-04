@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const V1 = `${API_BASE}/api/v1`;
 
 // Token JWT lấy lúc đăng nhập (xem lib/auth.tsx) — lưu localStorage, gắn vào
@@ -28,8 +28,8 @@ export type UserOut = {
   role: UserRole;
   facebook_url: string | null;
   zalo_link: string | null;
-  telegram_username: string | null;
   is_active: boolean;
+  has_avatar: boolean;
 };
 
 export type LoginResponse = {
@@ -40,9 +40,6 @@ export type LoginResponse = {
 
 export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
 export type DispatchGuestStatus = "pending" | "sent" | "read" | "confirmed" | "failed";
-// Kênh gửi thông báo — mỗi khách chọn 1 kênh (không multi-channel/khách, xem
-// backend/app/services/notification/). "telegram" chưa có UI chọn (Phase 4).
-export type NotificationChannel = "zalo" | "telegram";
 
 export type TimelineEvent = {
   day_index: number;
@@ -57,8 +54,9 @@ export type Guest = {
   full_name: string;
   phone_number: string | null;
   zalo_id: string | null;
-  telegram_chat_id: string | null;
-  notification_channel: NotificationChannel;
+  age: number | null;
+  travel_group: string | null;
+  room_type_id: string | null;
   seat_number: string | null;
   room_number: string | null;
   dietary_note: string | null;
@@ -89,6 +87,39 @@ export type DashboardSummary = {
   recent_activities: DashboardActivity[];
 };
 
+export type ChangelogEntry = {
+  id: string;
+  title: string;
+  description: string | null;
+  created_at: string;
+};
+
+export type RoomType = {
+  id: string;
+  name: string;
+  capacity: number;
+  quantity: number;
+};
+
+export type AssignedGroup = {
+  group_label: string;
+  guest_ids: string[];
+  room_type_id: string;
+  room_type_name: string;
+};
+
+export type UnassignedGroup = {
+  group_label: string;
+  guest_ids: string[];
+  group_size: number;
+  reason: string;
+};
+
+export type AutoAssignRoomsResponse = {
+  assigned: AssignedGroup[];
+  unassigned: UnassignedGroup[];
+};
+
 export type TourDetail = TourListItem & {
   process_error: string | null;
   source_filename: string | null;
@@ -97,6 +128,7 @@ export type TourDetail = TourListItem & {
   timeline_events: TimelineEvent[];
   updated_at: string;
   zalo_group_id: string | null;
+  has_cover_image: boolean;
 };
 
 export type ZaloLoginStatus = {
@@ -128,11 +160,7 @@ export type PublicTourView = {
   ready: boolean;
   timeline_events: TimelineEvent[];
   weather: EventWeather[];
-};
-
-export type TelegramInfo = {
-  configured: boolean;
-  bot_username: string | null;
+  cover_image_url: string | null;
 };
 
 export type AIProviderStatus = {
@@ -146,8 +174,11 @@ export type SystemSettings = {
   ai_providers: AIProviderStatus[];
   llm_primary_provider: string;
   effective_primary_provider: string | null;
-  telegram_configured: boolean;
-  telegram_source: "db" | "env" | "none";
+};
+
+export type CompanyInfo = {
+  name: string;
+  logo_url: string | null;
 };
 
 export type HealthStatus = {
@@ -207,7 +238,31 @@ export const api = {
 
   listTours: () => request<TourListItem[]>("/tours"),
 
+  // File .xlsx nhị phân, không phải JSON — không dùng chung request() (luôn
+  // res.json()). Vẫn cần header Authorization (route nằm trong api_router,
+  // yêu cầu JWT ở mọi route) nên không thể dùng <a href> link thô.
+  downloadGuestListTemplate: async (): Promise<Blob> => {
+    const token = getStoredToken();
+    const res = await fetch(`${V1}/tours/guest-list-template`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Tải file mẫu lỗi ${res.status}`);
+    return res.blob();
+  },
+
   getDashboard: () => request<DashboardSummary>("/dashboard"),
+
+  listChangelog: () => request<ChangelogEntry[]>("/changelog"),
+
+  createChangelogEntry: (payload: { title: string; description?: string }) =>
+    request<ChangelogEntry>("/changelog", { method: "POST", body: JSON.stringify(payload) }),
+
+  updateChangelogEntry: (entryId: string, payload: Partial<{ title: string; description: string }>) =>
+    request<ChangelogEntry>(`/changelog/${entryId}`, { method: "PUT", body: JSON.stringify(payload) }),
+
+  deleteChangelogEntry: (entryId: string) => request<void>(`/changelog/${entryId}`, { method: "DELETE" }),
+
+  getActivities: (limit = 100) => request<DashboardActivity[]>(`/dashboard/activities?limit=${limit}`),
 
   createTour: (formData: FormData) =>
     request<{ id: string; status: TourStatus; message: string }>("/tours", {
@@ -216,6 +271,16 @@ export const api = {
     }),
 
   getTour: (id: string) => request<TourDetail>(`/tours/${id}`),
+
+  setCoverImage: (tourId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<void>(`/tours/${tourId}/cover-image`, { method: "PUT", body: formData });
+  },
+
+  clearCoverImage: (tourId: string) => request<void>(`/tours/${tourId}/cover-image`, { method: "DELETE" }),
+
+  deleteTour: (tourId: string) => request<void>(`/tours/${tourId}`, { method: "DELETE" }),
 
   reprocessTour: (id: string) =>
     request<{ id: string; status: TourStatus; message: string }>(`/tours/${id}/reprocess`, {
@@ -236,12 +301,44 @@ export const api = {
 
   addGuest: (
     tourId: string,
-    payload: { full_name: string; phone_number?: string; seat_number?: string; room_number?: string; dietary_note?: string }
+    payload: {
+      full_name: string;
+      phone_number?: string;
+      age?: number;
+      travel_group?: string;
+      seat_number?: string;
+      room_number?: string;
+      dietary_note?: string;
+    }
   ) =>
     request<Guest>(`/tours/${tourId}/guests`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  listRoomTypes: (tourId: string) => request<RoomType[]>(`/tours/${tourId}/room-types`),
+
+  createRoomType: (tourId: string, payload: { name: string; capacity: number; quantity: number }) =>
+    request<RoomType>(`/tours/${tourId}/room-types`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateRoomType: (
+    tourId: string,
+    roomTypeId: string,
+    payload: Partial<{ name: string; capacity: number; quantity: number }>
+  ) =>
+    request<RoomType>(`/tours/${tourId}/room-types/${roomTypeId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteRoomType: (tourId: string, roomTypeId: string) =>
+    request<void>(`/tours/${tourId}/room-types/${roomTypeId}`, { method: "DELETE" }),
+
+  autoAssignRooms: (tourId: string) =>
+    request<AutoAssignRoomsResponse>(`/tours/${tourId}/auto-assign-rooms`, { method: "POST" }),
 
   deleteGuest: (tourId: string, guestId: string) =>
     request<void>(`/tours/${tourId}/guests/${guestId}`, { method: "DELETE" }),
@@ -300,8 +397,6 @@ export const api = {
       body: JSON.stringify({ message }),
     }),
 
-  getTelegramInfo: () => request<TelegramInfo>("/telegram/info"),
-
   // /auth/login KHÔNG cần token (chicken-and-egg) nên gọi thẳng fetch, không
   // qua request() (vốn luôn gắn Authorization: Bearer từ token đã lưu).
   login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -319,9 +414,67 @@ export const api = {
 
   getMe: () => request<UserOut>("/auth/me"),
 
-  // Cài đặt hệ thống (AI provider key, Telegram bot) — CHỈ Admin, backend tự
-  // trả 403 cho User thường (xem app/api/v1/admin_settings.py).
+  updateMe: (payload: Partial<{ full_name: string; phone_number: string; facebook_url: string; zalo_link: string }>) =>
+    request<UserOut>("/auth/me", { method: "PUT", body: JSON.stringify(payload) }),
+
+  setMyAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<void>("/auth/me/avatar", { method: "PUT", body: formData });
+  },
+
+  clearMyAvatar: () => request<void>("/auth/me/avatar", { method: "DELETE" }),
+
+  // Avatar yêu cầu đăng nhập (không public như logo công ty/ảnh bìa tour —
+  // ảnh nhân sự nội bộ) nên KHÔNG dùng <img src> trực tiếp được (trình duyệt
+  // không tự gắn header Authorization). Trả về Blob, nơi gọi tự tạo object
+  // URL — cùng cách downloadGuestListTemplate đã làm.
+  getUserAvatarBlob: async (userId: string): Promise<Blob | null> => {
+    const token = getStoredToken();
+    const res = await fetch(`${V1}/users/${userId}/avatar`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return null;
+    return res.blob();
+  },
+
+  // Cài đặt hệ thống (AI provider key) — CHỈ Admin, backend tự trả 403 cho
+  // User thường (xem app/api/v1/admin_settings.py).
   getSystemSettings: () => request<SystemSettings>("/admin/settings"),
+
+  // Public — không cần đăng nhập (dùng ở /signin trước khi có token, và
+  // trang public /t/[id]) — vẫn qua request() bình thường, request() chỉ
+  // GẮN THÊM Authorization nếu có token sẵn, không BẮT BUỘC phải có.
+  getCompanyInfo: () => request<CompanyInfo>("/company/info"),
+
+  setCompanyInfo: (name: string) =>
+    request<void>("/company/info", { method: "PUT", body: JSON.stringify({ name }) }),
+
+  setCompanyLogo: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<void>("/company/logo", { method: "PUT", body: formData });
+  },
+
+  clearCompanyLogo: () => request<void>("/company/logo", { method: "DELETE" }),
+
+  listUsers: () => request<UserOut[]>("/admin/users"),
+
+  createUser: (payload: { email: string; password: string; full_name: string; phone_number?: string; role: UserRole }) =>
+    request<UserOut>("/admin/users", { method: "POST", body: JSON.stringify(payload) }),
+
+  updateUser: (
+    userId: string,
+    payload: Partial<{ full_name: string; phone_number: string; role: UserRole; is_active: boolean }>
+  ) => request<UserOut>(`/admin/users/${userId}`, { method: "PUT", body: JSON.stringify(payload) }),
+
+  resetUserPassword: (userId: string, newPassword: string) =>
+    request<void>(`/admin/users/${userId}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ new_password: newPassword }),
+    }),
+
+  deleteUser: (userId: string) => request<void>(`/admin/users/${userId}`, { method: "DELETE" }),
 
   setGeminiConfig: (apiKey: string) =>
     request<void>("/admin/settings/ai-providers/gemini", {
@@ -351,11 +504,7 @@ export const api = {
       body: JSON.stringify({ provider }),
     }),
 
-  setTelegramConfig: (botToken: string, webhookSecret: string) =>
-    request<void>("/admin/settings/telegram", {
-      method: "PUT",
-      body: JSON.stringify({ bot_token: botToken, webhook_secret: webhookSecret }),
-    }),
+  testAiProvider: (provider: string) =>
+    request<{ ok: boolean; message: string }>(`/admin/settings/ai-providers/${provider}/test`, { method: "POST" }),
 
-  clearTelegramConfig: () => request<void>("/admin/settings/telegram", { method: "DELETE" }),
 };

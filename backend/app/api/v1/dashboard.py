@@ -24,20 +24,19 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 _RECENT_LIMIT = 5
 
 
-@router.get("", response_model=DashboardSummary)
-async def get_dashboard(
-    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
-) -> DashboardSummary:
-    tours_query = select(Tour).options(selectinload(Tour.guests)).order_by(Tour.updated_at.desc())
+async def build_recent_activities(db: AsyncSession, current_user: User, limit: int) -> list[DashboardActivity]:
+    """Dùng chung cho GET /dashboard (top 5, xem docstring module) và
+    GET /dashboard/activities (trang "Thông báo" — xem lại toàn bộ, xem
+    frontend/src/app/notifications/page.tsx)."""
+    tours_query = select(Tour).options(selectinload(Tour.guests)).order_by(Tour.created_at.desc()).limit(limit)
     if current_user.role != UserRole.ADMIN:
         tours_query = tours_query.where(Tour.owner_id == current_user.id)
     tours_result = await db.execute(tours_query)
     tours = list(tours_result.scalars().all())
-    active_tour = tour_to_list_item(tours[0]) if tours else None
 
     activities: list[DashboardActivity] = []
 
-    for tour in sorted(tours, key=lambda t: t.created_at, reverse=True)[:_RECENT_LIMIT]:
+    for tour in tours:
         activities.append(
             DashboardActivity(type="tour_created", text=f"Tạo tour '{tour.name}'", timestamp=tour.created_at)
         )
@@ -56,7 +55,7 @@ async def get_dashboard(
         .options(selectinload(Guest.tour))
         .where(Guest.last_dispatched_at.is_not(None))
         .order_by(Guest.last_dispatched_at.desc())
-        .limit(_RECENT_LIMIT)
+        .limit(limit)
     )
     if current_user.role != UserRole.ADMIN:
         guests_query = guests_query.where(Tour.owner_id == current_user.id)
@@ -71,5 +70,29 @@ async def get_dashboard(
         )
 
     activities.sort(key=lambda a: a.timestamp, reverse=True)
+    return activities[:limit]
 
-    return DashboardSummary(active_tour=active_tour, recent_activities=activities[:_RECENT_LIMIT])
+
+@router.get("", response_model=DashboardSummary)
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> DashboardSummary:
+    tours_query = select(Tour).options(selectinload(Tour.guests)).order_by(Tour.updated_at.desc())
+    if current_user.role != UserRole.ADMIN:
+        tours_query = tours_query.where(Tour.owner_id == current_user.id)
+    tours_result = await db.execute(tours_query)
+    tours = list(tours_result.scalars().all())
+    active_tour = tour_to_list_item(tours[0]) if tours else None
+
+    activities = await build_recent_activities(db, current_user, _RECENT_LIMIT)
+
+    return DashboardSummary(active_tour=active_tour, recent_activities=activities)
+
+
+@router.get("/activities", response_model=list[DashboardActivity])
+async def list_activities(
+    limit: int = 100, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> list[DashboardActivity]:
+    """Toàn bộ lịch sử hoạt động (trang "Thông báo") — khác GET /dashboard
+    (chỉ 5 cái mới nhất cho tổng quan nhanh)."""
+    return await build_recent_activities(db, current_user, limit)

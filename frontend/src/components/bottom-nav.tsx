@@ -9,9 +9,9 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
-  { href: "/", label: "Tours", icon: ToursIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon, tourId: "nav-dashboard-mobile" },
+  { href: "/", label: "Tours", icon: ToursIcon, tourId: "nav-tours-mobile" },
+  { href: "/settings", label: "Settings", icon: SettingsIcon, tourId: "nav-settings-mobile" },
 ] as const;
 
 export function BottomNav() {
@@ -20,12 +20,13 @@ export function BottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card lg:hidden">
       <div className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1.5">
-        {TABS.map(({ href, label, icon: Icon }) => {
+        {TABS.map(({ href, label, icon: Icon, tourId }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
+              data-tour={tourId}
               className={cn(
                 "flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] font-medium transition-colors",
                 active ? "text-primary" : "text-muted-foreground"

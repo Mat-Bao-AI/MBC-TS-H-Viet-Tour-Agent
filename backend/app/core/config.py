@@ -57,16 +57,6 @@ class Settings(BaseSettings):
     # Zalo bridge (Node.js service bọc zca-js — xem app/services/zalo_service.py)
     zalo_bridge_url: str = "http://zalo_bridge:4000"
 
-    # Telegram Bot API — kênh gửi thứ 2 (Phase 3), gọi thẳng httpx từ Python,
-    # KHÔNG cần service bridge riêng như Zalo (API chính thức, có tài liệu rõ
-    # ràng). Tạo bot qua @BotFather để lấy token.
-    telegram_bot_token: str = ""
-    # Secret tự đặt (vd openssl rand -hex 32) — dùng để xác thực webhook thật
-    # sự đến từ Telegram (header X-Telegram-Bot-Api-Secret-Token phải khớp),
-    # tránh ai đó giả mạo request để tự gán telegram_chat_id cho khách người
-    # khác. Xem app/api/v1/telegram_webhook.py.
-    telegram_webhook_secret: str = ""
-
     # Thư mục lưu file tài liệu tour đã upload (Phase 1: local storage)
     upload_dir: str = "./storage/uploads"
     max_upload_size_mb: int = 20
@@ -90,8 +80,8 @@ class Settings(BaseSettings):
     # Để trống ở production nghĩa là KHÔNG origin nào gọi được — phải set khi deploy.
     allowed_origin: str = ""
 
-    # Khoá mã hoá config nhạy cảm Admin nhập qua UI, lưu DB (AI provider key,
-    # Telegram bot token — xem app/core/crypto.py, app/core/dynamic_config.py).
+    # Khoá mã hoá config nhạy cảm Admin nhập qua UI, lưu DB (AI provider key
+    # — xem app/core/crypto.py, app/core/dynamic_config.py).
     # BẮT BUỘC đổi giá trị thật khi deploy (Fernet.generate_key(), 44 ký tự
     # base64) — mất/đổi khoá này = mọi config đã lưu DB không giải mã lại
     # được nữa (phải nhập lại từ đầu qua UI). Không tránh được chicken-and-egg
@@ -105,19 +95,14 @@ class Settings(BaseSettings):
 
     # ⚠️ Các property *_configured/configured_llm_providers/... dưới đây chỉ
     # phản ánh giá trị trong .env — kể từ Phase cấu hình DB (2026-08-31),
-    # nguồn THẬT SỰ dùng để gọi AI/Telegram là app/core/dynamic_config.py
-    # (ưu tiên DB, Admin sửa qua UI không cần restart; rơi về các property
-    # này làm fallback nếu Admin chưa cấu hình gì qua UI). KHÔNG dùng trực
-    # tiếp các property này ở nơi cần biết trạng thái THỰC TẾ — luôn qua
-    # dynamic_config.
+    # nguồn THẬT SỰ dùng để gọi AI là app/core/dynamic_config.py (ưu tiên DB,
+    # Admin sửa qua UI không cần restart; rơi về các property này làm
+    # fallback nếu Admin chưa cấu hình gì qua UI). KHÔNG dùng trực tiếp các
+    # property này ở nơi cần biết trạng thái THỰC TẾ — luôn qua dynamic_config.
 
     @property
     def gemini_configured(self) -> bool:
         return is_configured_value(self.gemini_api_key)
-
-    @property
-    def telegram_configured(self) -> bool:
-        return is_configured_value(self.telegram_bot_token) and is_configured_value(self.telegram_webhook_secret)
 
     @property
     def azure_openai_configured(self) -> bool:

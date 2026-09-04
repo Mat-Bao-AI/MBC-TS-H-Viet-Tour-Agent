@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
 from app.api.v1.account import login_router
+from app.api.v1.company import router as company_router
 from app.api.v1.public import router as public_router
-from app.api.v1.telegram_webhook import router as telegram_webhook_router
 from app.core import dynamic_config
 from app.core.config import get_settings
 from app.core.llm import log_llm_provider_status
@@ -68,10 +68,11 @@ app.include_router(api_router)
 # get_current_user (mọi router khác trong api/v1 đều bắt buộc JWT, xem
 # app/api/v1/__init__.py). Đây là các lối đi công khai DUY NHẤT của backend:
 # - public_router: trang lịch trình cho khách xem (app/api/v1/public.py)
-# - telegram_webhook_router: Telegram tự gọi vào, không gửi được JWT, xác
-#   thực bằng secret token riêng (app/api/v1/telegram_webhook.py)
 # - login_router: chicken-and-egg — chưa đăng nhập thì chưa có JWT để gửi
 #   (app/api/v1/account.py). Chỉ có /auth/login, KHÔNG có endpoint đăng ký.
+# - company_router: GET công khai (cần hiện logo/tên ở /signin TRƯỚC khi đăng
+#   nhập, và ở /t/[id] cho khách xem) — PUT/DELETE tự thêm require_admin
+#   riêng từng route (app/api/v1/company.py), KHÔNG phải cả router public.
 app.include_router(public_router, prefix="/api/v1")
-app.include_router(telegram_webhook_router, prefix="/api/v1")
 app.include_router(login_router, prefix="/api/v1")
+app.include_router(company_router, prefix="/api/v1")

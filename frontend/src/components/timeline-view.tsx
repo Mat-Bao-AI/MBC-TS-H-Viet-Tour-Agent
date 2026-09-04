@@ -3,8 +3,7 @@
 // Xem lịch trình theo thiết kế Stitch "Lịch trình Tour (Timeline)" — tab
 // theo ngày, node tròn nối nhau, trạng thái Đã hoàn thành/Sắp diễn ra tính
 // từ giờ THẬT (tour.start_date + event.start_time so với hiện tại), thời
-// tiết thật từ Open-Meteo, gửi thông báo từng mốc riêng lẻ (theo kênh
-// notification_channel của từng khách — Zalo hoặc Telegram).
+// tiết thật từ Open-Meteo, gửi thông báo từng mốc riêng lẻ qua Zalo.
 import { useMemo, useState } from "react";
 import { api, EventWeather, TimelineEvent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ type Props = {
   events: TimelineEvent[];
   weather: EventWeather[];
   zaloConnected: boolean;
-  telegramConfigured: boolean;
 };
 
 function eventDateTime(startDate: string, event: TimelineEvent): Date {
@@ -36,8 +34,7 @@ function composeEventMessage(event: TimelineEvent, weather?: EventWeather): stri
   return msg;
 }
 
-export function TimelineView({ tourId, startDate, events, weather, zaloConnected, telegramConfigured }: Props) {
-  const anyChannelReady = zaloConnected || telegramConfigured;
+export function TimelineView({ tourId, startDate, events, weather, zaloConnected }: Props) {
   const dayIndexes = useMemo(
     () => Array.from(new Set(events.map((e) => e.day_index))).sort((a, b) => a - b),
     [events]
@@ -89,10 +86,9 @@ export function TimelineView({ tourId, startDate, events, weather, zaloConnected
         ))}
       </div>
 
-      {!anyChannelReady && (
+      {!zaloConnected && (
         <p className="text-xs text-muted-foreground">
-          ⚠️ Chưa kết nối Zalo hoặc cấu hình Telegram — nút &quot;Gửi&quot; sẽ xếp hàng nhưng chưa gửi được cho tới
-          khi có ít nhất 1 kênh sẵn sàng.
+          ⚠️ Chưa kết nối Zalo — nút &quot;Gửi&quot; sẽ xếp hàng nhưng chưa gửi được cho tới khi kết nối.
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { api, EventWeather, TelegramInfo, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
+import { api, EventWeather, RoomType, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { TimelineBuilder } from "@/components/timeline-builder";
 import { TimelineView } from "@/components/timeline-view";
 import { QuickUpdateSheet } from "@/components/quick-update-sheet";
 import { GuestSelector } from "@/components/guest-selector";
+import { CoverImageCard } from "@/components/cover-image-card";
+import { RoomTypeManager } from "@/components/room-type-manager";
+import { DeleteTourButton } from "@/components/delete-tour-button";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +24,7 @@ export default function ReviewTourPage() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [weather, setWeather] = useState<EventWeather[]>([]);
   const [zaloStatus, setZaloStatus] = useState<ZaloLoginStatus | null>(null);
-  const [telegramInfo, setTelegramInfo] = useState<TelegramInfo | null>(null);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -41,10 +44,18 @@ export default function ReviewTourPage() {
     }
   }
 
+  async function loadRoomTypes() {
+    try {
+      setRoomTypes(await api.listRoomTypes(tourId));
+    } catch {
+      // best-effort — không chặn trang nếu lỗi, HDV vẫn xem/sửa lịch trình bình thường
+    }
+  }
+
   useEffect(() => {
     load();
+    loadRoomTypes();
     api.getZaloLoginStatus().then(setZaloStatus).catch(() => {});
-    api.getTelegramInfo().then(setTelegramInfo).catch(() => setTelegramInfo({ configured: false, bot_username: null }));
     // Poll trong lúc agent đang parse — dừng poll khi đã có kết quả (review/dispatched/failed)
     const interval = setInterval(() => {
       setTour((current) => {
@@ -105,8 +116,13 @@ export default function ReviewTourPage() {
             </p>
           </div>
         </div>
-        <StatusBadge status={tour.status} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={tour.status} />
+          <DeleteTourButton tourId={tourId} tourName={tour.name} />
+        </div>
       </div>
+
+      <CoverImageCard tourId={tourId} hasCoverImage={tour.has_cover_image} onChanged={load} />
 
       {isProcessing && (
         <Card>
@@ -154,11 +170,17 @@ export default function ReviewTourPage() {
                   events={events}
                   weather={weather}
                   zaloConnected={zaloConnected}
-                  telegramConfigured={!!telegramInfo?.configured}
                 />
               )}
             </CardContent>
           </Card>
+
+          <RoomTypeManager
+            tourId={tourId}
+            roomTypes={roomTypes}
+            onChanged={loadRoomTypes}
+            onGuestsChanged={load}
+          />
 
           <Card>
             <CardHeader>
@@ -172,6 +194,7 @@ export default function ReviewTourPage() {
                 onToggle={() => {}}
                 onToggleAll={() => {}}
                 onGuestsChanged={load}
+                roomTypes={roomTypes}
               />
               <div className="mt-4">
                 <Link href={`/tours/${tourId}/dispatch`}>
@@ -195,7 +218,6 @@ export default function ReviewTourPage() {
               tourId={tourId}
               guestCount={tour.guests.length}
               zaloConnected={zaloConnected}
-              telegramConfigured={!!telegramInfo?.configured}
               onClose={() => setShowQuickUpdate(false)}
             />
           )}

@@ -30,3 +30,8 @@ backend/storage/uploads/
 
 # MCP credentials (secret key — never commit, đã import vào ~/.claude.json user scope)
 mcp_ggstitch.txt
+
+# Công cụ nội bộ (Claude Code) — sandbox data demo + marker /checkpoint.
+# KHÔNG liên quan gì tới ứng dụng, không phần nào được lên git.
+_local/
+.vibe/

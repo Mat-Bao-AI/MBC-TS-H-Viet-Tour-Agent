@@ -1,155 +1,174 @@
-# viet-tour-agent-zalo
+# VietTour Agent — Trợ lý AI cho Hướng dẫn viên Du lịch
 
-Agent AI hỗ trợ hướng dẫn viên du lịch (HDV) biến tài liệu lịch trình thô
-(Word/PDF/Excel) thành timeline chi tiết theo từng mốc giờ, và tự động gửi
-thông báo cá nhân hoá tới khách hàng qua **Zalo cá nhân**, hoặc trang lịch
-trình công khai xem trực tiếp trên web — không cần kết nối gì (xem mục
-Phase 4 bên dưới).
+Agent AI giúp hướng dẫn viên (HDV) biến tài liệu lịch trình thô (Word/PDF/Excel)
+thành timeline chi tiết theo từng mốc giờ, và tự động gửi thông báo cá nhân hoá
+tới khách hàng qua **Zalo cá nhân** hoặc **trang lịch trình công khai** — khách
+xem trực tiếp trên web, không cần cài gì, không cần đăng nhập.
 
-> Tài liệu mô tả sản phẩm gốc: [viet-tour-agent-zalo.txt](./viet-tour-agent-zalo.txt)
+---
 
-## Trạng thái hiện tại
+## 1. Giới thiệu chức năng
 
-✅ **Phase 1 — MVP lõi** (upload → agent → duyệt timeline → gửi Zalo 1-1) đã
-dựng xong, chạy được qua `docker compose up`, smoke-test end-to-end pass.
+### 1.1 Trích xuất lịch trình bằng AI
+HDV tải lên tài liệu lịch trình thô (Word/PDF/Excel) — Agent AI (Gemini hoặc
+Azure OpenAI, cấu hình linh hoạt) tự đọc và dựng thành timeline có cấu trúc:
+ngày, giờ, địa điểm, ghi chú theo từng mốc.
 
-✅ **Phase 2 — giao diện dựng lại theo thiết kế Google Stitch (MCP) +
-các tính năng RSVP/thời tiết/gửi nhanh/gửi nhóm** (2026-08-31, xem
-[docs/STITCH-DESIGN.md](docs/STITCH-DESIGN.md) — nguồn thiết kế + design
-token đầy đủ):
+**Lợi ích nghiệp vụ:** loại bỏ thao tác gõ tay từng dòng lịch trình vào hệ
+thống; rút ngắn thời gian chuẩn bị tour từ hàng giờ xuống vài phút.
 
-- Giao diện mobile-first theo đúng 8 màn Stitch: Dashboard, Danh sách Tour,
-  Tạo Tour, Lịch trình, RSVP, Cài đặt, Đăng nhập QR — bottom nav 3 tab.
-- **Thời tiết thật** trên timeline (Open-Meteo, miễn phí, không cần key) —
-  geocode địa danh + dự báo theo ngày, ẩn đi (không bịa số) nếu ngoài phạm
-  vi dự báo hoặc tour chưa có ngày.
-- **Instant Quick-Update**: gửi tin khẩn tức thời (tự soạn, hoặc ghép từ 1
-  mốc timeline) tới cả đoàn, không cần soạn lại toàn bộ lịch trình.
-- **RSVP tracking**: 3 tab Đã gửi/Đã xem/Đã xác nhận theo `dispatch_status`
-  thật. Đã xem/Đã xác nhận do HDV tự đánh dấu tay (chưa có webhook
-  seen-message tự động từ Zalo ở Phase 2 — xem ghi chú trong
-  `GuestStatusUpdateRequest`).
-- **Gửi Zalo Group**: tạo 1 nhóm Zalo thật (zca-js `createGroup`) gồm khách
-  đã resolve được zalo_id, gửi tin chung 1 lần thay vì N tin 1-1.
+### 1.2 Duyệt & chỉnh sửa timeline
+HDV xem lại timeline AI dựng, sửa/thêm/xoá mốc trước khi gửi cho khách — AI
+hỗ trợ chứ không thay thế quyết định cuối cùng của HDV.
 
-✅ **Phase 3 — đa kênh gửi thông báo** (2026-08-31): Zalo (`zca-js`) gặp lỗi
-thật khó chẩn đoán lúc HDV test thật (gửi tin thất bại âm thầm, tạo nhóm
-502 "Không tìm thấy" — API không chính thức, nghi do giới hạn nền tảng yêu
-cầu là bạn bè Zalo, chưa xác nhận 100%) → tách Zalo thành 1 trong nhiều
-kênh qua interface `NotificationSender` (`backend/app/services/notification/`)
-thay vì phụ thuộc hoàn toàn, và thêm Telegram Bot API làm kênh thứ 2.
+### 1.3 Gửi thông báo qua Zalo cá nhân
+Kết nối tài khoản Zalo cá nhân qua quét mã QR (thư viện `zca-js`), gửi tin
+nhắn cá nhân hoá tới từng khách hoặc tạo 1 nhóm Zalo chung cho cả đoàn.
 
-✅ **Phase 4 — bỏ Telegram, tập trung Zalo + URL công khai** (2026-09-03):
-test thật cho thấy Telegram cản trở trải nghiệm — khách bắt buộc phải tự
-bấm link mời + Start với bot trước khi nhận được tin (Telegram không cho
-tra chat_id theo SĐT như Zalo), trong khi đa số khách Việt Nam đã dùng Zalo
-sẵn. Quyết định bỏ hẳn kênh Telegram (xoá `telegram_service.py`,
-`telegram_webhook.py`, cột `guests.telegram_chat_id`/`notification_channel`,
-`users.telegram_username` — xem migration `0008_drop_telegram`), tập trung
-2 hình thức:
+**Lợi ích nghiệp vụ:** khách nhận thông tin tour ngay trên kênh chat họ đã
+quen dùng hằng ngày, không cần cài thêm app mới.
 
-- **Zalo cá nhân** (`app/services/notification/zalo_sender.py`) — kênh gửi
-  chính, mọi khách ngầm định gửi qua đây.
-- **Trang lịch trình công khai** `/t/<tour_id>` — 1 URL dùng chung cho cả
-  đoàn, không cần đăng nhập gì, không lộ danh sách khách/SĐT/ghế/phòng (API
-  `GET /api/v1/public/tours/{id}` cố tình đứng ngoài cổng JWT). Style
-  lấy cảm hứng từ `docs/Demo-tour.html`. HDV bấm "Sao chép link" ở Dashboard
-  hoặc trang RSVP để gửi qua bất kỳ kênh nào (SMS, email, in QR...).
+### 1.4 Trang lịch trình công khai
+Mỗi tour có 1 đường dẫn công khai (`/t/<tour_id>`) — khách mở xem trực tiếp
+trên trình duyệt, không cần đăng nhập, không lộ thông tin cá nhân của khách
+khác (không có SĐT/số ghế/số phòng). HDV chỉ cần copy link gửi qua bất kỳ
+kênh nào (SMS, email, in QR...).
 
-✅ **Phase 5 — quản trị đa người dùng, thương hiệu công ty, white-label**
-(2026-09-04):
+**Lợi ích nghiệp vụ:** vẫn phục vụ được khách không dùng Zalo, hoặc dùng làm
+kênh dự phòng khi Zalo gặp sự cố.
 
-- **Quản lý người dùng** (Admin) — tạo/sửa/khoá/xoá tài khoản Admin/HDV,
-  reset mật khẩu, đổi vai trò. Xoá tài khoản có chặn an toàn: không tự xoá
-  chính mình, không xoá Admin active cuối cùng, không xoá HDV đang sở hữu
-  tour (tránh vỡ dữ liệu).
-- **Thương hiệu công ty** — Admin đổi tên + logo công ty ngay trên UI, hiện ở
-  Sidebar, trang đăng nhập, trang lịch trình công khai, và tự động ký tên
-  cuối mỗi tin nhắn Zalo gửi khách.
-- **Hồ sơ HDV** — mỗi HDV tự upload avatar + thông tin liên hệ (SĐT, Zalo,
-  Facebook), tự động ghép vào chữ ký tin nhắn cùng tên công ty (khách nhận
-  tin biết ngay ai phụ trách đoàn và liên hệ thế nào).
-- **Cài đặt hệ thống chia theo tab** (Thương hiệu / Người dùng / AI) tại
-  `/settings/system` — Admin only, tách bạch khỏi `/settings` (khu vực cá
-  nhân dùng chung mọi vai trò: hồ sơ, kết nối Zalo, thông báo).
-- **Kiểm tra kết nối AI provider** — nút "Kiểm tra kết nối" gọi thử thật
-  ngay khi lưu Gemini/Azure OpenAI key, báo lỗi/thành công tức thì thay vì
-  đợi 1 tour thật parse lỗi mới biết (bắt được đúng lúc Google đổi tên model
-  gemini-1.5-flash → gemini-3.6-flash giữa chừng, xem `app/core/llm.py`).
-- **White-label toàn app** — tên công ty (không còn "VietTour Agent" cứng)
-  hiện đồng bộ ở mọi nơi: tiêu đề tab trình duyệt, trang "Về ứng dụng",
-  header mobile, trang đăng nhập Zalo, mô tả SEO khi chia sẻ link tour.
-- **Quản lý loại phòng + tự động xếp phòng** (`room-types`,
-  `auto-assign-rooms`) và thông tin khách mở rộng (tuổi, nhóm đi cùng, ghi
-  chú ăn kiêng).
-- **Ảnh bìa tour** hiện trên trang lịch trình công khai và preview khi dán
-  link vào Zalo/Messenger (Open Graph).
-- **Lịch sử cập nhật** (changelog) — Admin tự ghi mục cập nhật, hiện ở trang
-  "Về ứng dụng" cho mọi User xem.
-- **Hướng dẫn onboarding tương tác** (react-joyride) cho người dùng lần đầu
-  vào Dashboard, tự cập nhật theo tên công ty đã cấu hình.
+### 1.5 Theo dõi RSVP
+3 tab Đã gửi / Đã xem / Đã xác nhận theo từng khách — HDV biết ai đã nhận
+được thông tin, ai còn cần nhắc lại.
 
-Chưa làm (còn lại, để backlog): OCR ảnh chụp lịch trình, VietQR, Zalo OA
-chính thức, tự động hoá "Đã xem" qua webhook `seen_messages` thật của
-zca-js (đã xác nhận API tồn tại, chưa triển khai).
+### 1.6 Gửi tin khẩn (Quick Update)
+Soạn 1 tin nhắn khẩn (hoặc ghép từ 1 mốc timeline có sẵn) gửi ngay tới cả
+đoàn khi có thay đổi đột xuất — không cần soạn lại toàn bộ lịch trình.
 
-⚠️ **Lưu ý rủi ro:** Phase 1 dùng Zalo Personal Client không chính thức
-(`zca-js`, đăng nhập quét QR) — vi phạm Điều khoản dịch vụ của Zalo, tài khoản
-Zalo dùng để chạy có rủi ro bị khoá nếu gửi tin tần suất cao. Hệ thống có
-hàng đợi Celery giới hạn tốc độ gửi để giảm rủi ro, nhưng không loại bỏ hoàn
-toàn.
+### 1.7 Thời tiết thật theo lịch trình
+Ghép dự báo thời tiết thật (Open-Meteo, miễn phí) vào từng mốc theo địa danh
++ ngày cụ thể trong tour, tự ẩn nếu ngoài phạm vi dự báo — không bịa số.
 
-## Kiến trúc
+### 1.8 Quản lý loại phòng & tự động xếp phòng
+Khai báo các loại phòng (đơn/đôi/gia đình...) cho tour, hệ thống tự động gán
+phòng cho khách theo nhóm đi cùng và sức chứa.
 
-- **Backend:** Python 3.11+ / FastAPI (async) / LangGraph + LangChain (agent
-  orchestration) / SQLAlchemy Async + MySQL 8.0 / Celery + Redis
-- **Frontend:** Next.js 16 (App Router) / TypeScript / TailwindCSS / shadcn-ui
-- **LLM Engine:** Gemini (mặc định `gemini-3.6-flash`) hoặc Azure OpenAI —
-  Admin đổi provider/model qua UI (`/settings/system` → tab AI) không cần
-  sửa code/redeploy, xem `app/core/llm.py`
-- **Gửi thông báo:** `app/services/notification/` (interface chung, hiện chỉ
-  1 implementation `zalo_sender.py`) — xem chi tiết mục Phase 4 ở trên.
-  - **Zalo:** `zca-js` (unofficial Personal Client, QR login) chạy trong
-    service Node.js riêng `zalo-bridge/` — backend Python gọi qua HTTP nội bộ
-    (`ZALO_BRIDGE_URL`). Lý do tách service: `zca-js` chỉ có bản JS, thư viện
-    Python thuần (`zlapi`) không hỗ trợ đăng nhập QR như tài liệu mô tả (chỉ
-    nhập cookie/IMEI thủ công từ trình duyệt).
-    ⚠️ Giới hạn đã xác nhận: chưa có API public để đăng nhập lại bằng session
-    đã lưu — cần quét QR lại mỗi khi `zalo_bridge` restart (chi tiết trong
-    `zalo-bridge/src/zaloClient.js`).
-- **2 lối đi công khai** (KHÔNG cần JWT, cố tình tách khỏi `api_router` —
-  xem `app/main.py`): `GET /api/v1/public/tours/{id}` (trang lịch trình cho
-  khách) và `POST /api/v1/auth/login` (chicken-and-egg — chưa đăng nhập thì
-  chưa có JWT để gửi).
-- **Auth app thật (2026-08-31):** đăng nhập bằng email/mật khẩu
-  (`app/api/v1/account.py`) cấp JWT (`Authorization: Bearer`, xem
-  `app/core/security.py`), 2 vai trò Admin/User (HDV). Multi-tenant theo
-  HDV — mỗi User chỉ thấy/thao tác tour do chính mình tạo (`Tour.owner_id`,
-  lọc qua `app/core/access.py`), Admin thấy mọi tour. Không có form tự đăng
-  ký — tài khoản Admin đầu tiên tạo tự động lúc khởi động nếu
-  `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` được cấu hình
-  (`app/core/seed.py`); từ đó Admin tự tạo thêm tài khoản khác qua UI
-  (`/settings/system` → tab Người dùng, `app/api/v1/admin_users.py`).
+**Lợi ích nghiệp vụ:** giảm thao tác xếp phòng thủ công dễ nhầm lẫn khi đoàn
+đông người.
 
-Chi tiết cấu trúc thư mục: xem mục 5 trong
-[viet-tour-agent-zalo.txt](./viet-tour-agent-zalo.txt).
+### 1.9 Quản lý người dùng (Admin/HDV)
+Admin tạo/sửa/khoá/xoá tài khoản Admin hoặc HDV khác, reset mật khẩu. Mỗi
+HDV chỉ thấy/thao tác tour do chính mình tạo (multi-tenant), Admin thấy toàn
+bộ.
 
-## Quickstart
+### 1.10 Thương hiệu công ty (white-label)
+Admin đổi tên + logo công ty ngay trên UI — áp dụng đồng bộ ở menu chính,
+trang đăng nhập, trang lịch trình công khai, tiêu đề tab trình duyệt, và tự
+động ký tên cuối mỗi tin nhắn Zalo gửi khách.
+
+**Lợi ích nghiệp vụ:** công cụ mang thương hiệu chính công ty lữ hành đang
+dùng, không phải thương hiệu của bên phát triển phần mềm.
+
+### 1.11 Hồ sơ HDV & chữ ký tin nhắn
+Mỗi HDV tự upload avatar + thông tin liên hệ (SĐT, Zalo, Facebook) — tự động
+ghép vào chữ ký cuối tin nhắn Zalo cùng tên công ty, khách biết ngay ai phụ
+trách đoàn và liên hệ thế nào khi cần.
+
+### 1.12 Cấu hình AI provider linh hoạt
+Admin nhập/đổi API key Gemini hoặc Azure OpenAI ngay trên UI, áp dụng ngay
+không cần sửa code/restart. Nút "Kiểm tra kết nối" gọi thử thật ngay lúc lưu
+key — biết ngay key có dùng được không, không phải đợi 1 tour thật lỗi mới
+biết.
+
+---
+
+## 2. Đối tượng sử dụng
+
+| Vai trò | Việc chính thực hiện trên hệ thống |
+|---|---|
+| Admin | Cấu hình hệ thống (thương hiệu, AI provider), quản lý toàn bộ tài khoản người dùng, xem/thao tác mọi tour |
+| Hướng dẫn viên (HDV / User) | Tạo tour từ tài liệu thô, duyệt timeline, gửi thông báo Zalo/link công khai, quản lý hồ sơ cá nhân |
+| Khách du lịch | Xem lịch trình công khai qua link được chia sẻ — không cần tài khoản |
+
+---
+
+## 3. Công nghệ sử dụng
+
+<!-- AUTO-GENERATED: do not edit -->
+
+**Backend (`backend/`)**
+- Python 3.11 + FastAPI (async) + Uvicorn
+- SQLAlchemy 2.0 (async) + Alembic (migration) + MySQL 8.0
+- Celery 5 + Redis 7 (hàng đợi gửi tin nhắn)
+- Agent orchestration: LangChain 1.x + LangGraph 1.x
+- AI provider: `langchain-google-genai` (Gemini) / `langchain-openai` (Azure OpenAI) — chọn 1 hoặc cả 2 qua UI Admin
+- Parsing tài liệu: `pypdf`, `python-docx`, `openpyxl`
+- Auth: JWT (`PyJWT`) + `bcrypt`
+- Mã hoá config nhạy cảm lưu DB: `cryptography` (Fernet)
+
+**Frontend (`frontend/`)**
+- Next.js 16 (App Router) + React 18 + TypeScript
+- TailwindCSS, `react-joyride` (onboarding tương tác)
+
+**Zalo bridge (`zalo-bridge/`)**
+- Node.js 22 + `zca-js` (Zalo Personal Client không chính thức, hỗ trợ đăng nhập quét QR) — service riêng vì thư viện Python thuần không hỗ trợ QR login
+
+**Database**
+- MySQL 8.0 (dữ liệu chính), Redis 7 (hàng đợi Celery)
+
+<!-- /AUTO-GENERATED -->
+
+---
+
+## 4. Yêu cầu môi trường
+
+- Docker + Docker Compose (cách chạy chính thức, khuyến nghị)
+- Nếu chạy thủ công không qua Docker: Python 3.11+, Node.js 22+, MySQL 8.0, Redis 7
+- Tài khoản Google AI Studio (Gemini API key) **hoặc** Azure OpenAI — cần ít nhất 1 trong 2 để agent trích xuất/sinh timeline hoạt động
+
+---
+
+## 5. Cài đặt và chạy thử (local)
 
 ```bash
 cp .env.example .env
-# 1. Điền GEMINI_API_KEY vào .env
-# 2. Tạo API_KEY (bắt buộc — backend/zalo_bridge từ chối chạy nếu thiếu):
-#      openssl rand -hex 32
-#    Dán giá trị vào cả API_KEY trong .env
+```
 
+Điền vào `.env` (tối thiểu để chạy được):
+
+```bash
+# Bắt buộc — tự sinh giá trị ngẫu nhiên, KHÔNG dùng giá trị mẫu
+SECRET_KEY=$(openssl rand -hex 32)
+API_KEY=$(openssl rand -hex 32)
+CONFIG_ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+# Tài khoản Admin đầu tiên (backend tự tạo lúc khởi động)
+SEED_ADMIN_EMAIL=admin@example.com
+SEED_ADMIN_PASSWORD=<mật khẩu mạnh tự đặt>
+
+# Ít nhất 1 trong 2 — có thể để trống và cấu hình sau qua UI Admin
+GEMINI_API_KEY=<gemini key thật, lấy tại aistudio.google.com>
+```
+
+Chạy toàn bộ hệ thống:
+
+```bash
 docker compose up -d --build
 ```
 
 - Frontend (giao diện HDV): http://localhost:3000
 - Backend API docs (Swagger): http://localhost:8000/docs
 
-Hoặc dùng script tiện lợi (tự in URL sau khi start/restart):
+Nếu thêm/đổi `GEMINI_API_KEY` trong `.env` sau khi đã `docker compose up`,
+cần build lại + tạo mới container để đọc `.env` mới (`docker restart` KHÔNG
+đủ):
+
+```bash
+docker compose build backend celery_worker
+docker compose up -d --force-recreate backend celery_worker
+```
+
+Hoặc dùng script tiện lợi:
 
 ```bash
 scripts/app.sh start     # build lại nếu code đổi + khởi động toàn bộ
@@ -158,51 +177,114 @@ scripts/app.sh restart   # restart container đang chạy, KHÔNG rebuild
 scripts/app.sh status    # xem trạng thái hiện tại
 ```
 
-Nếu bạn thêm `GEMINI_API_KEY` thật sau khi đã `up`, cần
-`docker compose restart backend celery_worker` để container đọc lại `.env`.
+---
 
-### Đã kiểm thử (smoke test)
+## 6. Build bản production
 
-- ✅ Build Docker thành công cả 4 service (backend, celery_worker, zalo_bridge, frontend)
-- ✅ `alembic upgrade head` chạy thật, tạo đúng bảng `tours`/`guests`/`timelines` trên MySQL
-- ✅ Upload tài liệu → agent xử lý nền → lỗi Gemini (do key giả) được bắt đúng, ghi vào `process_error`, `status=failed` — không crash
-- ✅ Đăng nhập Zalo QR: `zalo_bridge` sinh mã QR thật (ảnh PNG base64 hợp lệ) qua `zca-js`
-- ✅ Toàn bộ trang frontend (`/`, `/tours/create`, `/tours/[id]/review`, `/tours/[id]/dispatch`) render HTTP 200
-- ⏳ Chưa test được: agent trích xuất/sinh timeline thật (cần `GEMINI_API_KEY` thật), quét QR bằng điện thoại thật để hoàn tất đăng nhập, gửi tin Zalo thật
+```bash
+docker compose build
+```
 
-## Bảo mật
+Mỗi service (`backend`, `frontend`, `zalo_bridge`) có `Dockerfile` riêng,
+build multi-stage — không cần bước build thủ công ngoài lệnh trên.
 
-Đã chạy `/my-sec` audit (2026-08-25) và sửa các mục tìm được:
+---
 
-- ✅ **Auth thật (JWT, 2026-08-31)** chặn `/api/v1/*` — đăng nhập
-  email/mật khẩu, 2 vai trò Admin/User, multi-tenant theo HDV (xem mục Kiến
-  trúc). **Trừ 2 route công khai cố ý**: trang lịch trình cho khách (không
-  có field cá nhân nào) và `POST /auth/login` (chưa đăng nhập thì chưa có
-  JWT). Token lưu `localStorage` phía trình duyệt (không phải cookie) — vẫn
-  có rủi ro lộ nếu trang dính XSS, chấp nhận đánh đổi này ở quy mô công cụ
-  nội bộ hiện tại.
-- ✅ **Secret nội bộ backend↔zalo-bridge** (`API_KEY` trong `.env`) tách
-  riêng khỏi auth người dùng — 2 service Docker biết, không liên quan gì
-  tới trình duyệt/HDV.
-- ✅ 4 dependency có CVE đã biết (`pypdf`, `python-multipart`, `aiomysql`,
-  `starlette` qua `fastapi` cũ) đã bump lên bản vá, `pip-audit` xác nhận 0 CVE.
-- ✅ MySQL/Redis không còn publish port ra host (chỉ Docker network nội bộ).
-- ✅ Giới hạn dung lượng file upload (`MAX_UPLOAD_SIZE_MB`, mặc định 20MB).
-- ✅ Session Zalo (`zalo-bridge/storage/session.json`) đã ghi rõ cảnh báo lưu
-  plaintext trên disk, không log ra console, đã gitignore.
-- ⚠️ CORS production đọc từ `ALLOWED_ORIGIN` — **phải set domain thật khi
+## 7. Triển khai (Deploy)
+
+**Yêu cầu trước:** Python 3.11, Node.js 22, MySQL 8.0, Redis 7 — đúng bản đã
+chạy thật trong `docker-compose.yml`.
+
+**Lệnh dựng & chạy:**
+```bash
+cp .env.example .env
+# điền SECRET_KEY / API_KEY / CONFIG_ENCRYPTION_KEY / SEED_ADMIN_* / GEMINI_API_KEY thật
+docker compose up -d --build
+```
+
+**Dấu hiệu đã chạy:** `GET http://<host>:8000/health` trả `200`; mở
+`http://<host>:3000` thấy trang đăng nhập.
+
+**Tài khoản đầu tiên:** đăng nhập bằng đúng `SEED_ADMIN_EMAIL` /
+`SEED_ADMIN_PASSWORD` đã đặt trong `.env` — backend tự tạo tài khoản Admin
+này lúc khởi động (idempotent, chỉ tạo nếu email đó chưa tồn tại). Từ đó vào
+`/settings/system` → tab Người dùng để tạo thêm tài khoản khác.
+
+**Nâng cấp & lùi bản:** kéo code mới → `docker compose build` → `docker
+compose up -d`. Dữ liệu MySQL nằm ở Docker volume `mysql_data`, không mất
+khi rebuild/redeploy. Alembic tự chạy migration khi backend khởi động — lùi
+bản (rollback code cũ) không tự lùi schema DB, cần `alembic downgrade` thủ
+công nếu migration mới đã chạy.
+
+**Lỗi thường gặp:**
+- **`docker compose build` báo `ENOSPC: no space left on device`** — build
+  cache Docker tích luỹ qua nhiều lần build. Dọn bằng
+  `docker builder prune -af` (an toàn, chỉ xoá cache build) trước khi build
+  lại.
+- **Agent báo lỗi `404 models/... is not found` khi phân tích tour** — nhà
+  cung cấp AI (đặc biệt Google) đổi tên/khai tử model theo thời gian, kể cả
+  model đang dùng ổn định trước đó. Vào `/settings/system` → tab AI → bấm
+  "Kiểm tra kết nối" để xác nhận key/model còn dùng được **trước khi** báo
+  cho HDV; nếu lỗi, cần cập nhật tên model trong `backend/app/core/llm.py`
+  theo model hiện hành nhà cung cấp đang hỗ trợ.
+
+### ⚠️ Lưu ý rủi ro — Zalo Personal Client không chính thức
+
+Kênh gửi Zalo dùng `zca-js` (đăng nhập quét QR) — **không phải API chính
+thức của Zalo**. Tài khoản Zalo dùng để chạy có
+rủi ro bị khoá nếu gửi tin tần suất cao. Hệ thống có hàng đợi Celery giới
+hạn tốc độ gửi để giảm rủi ro, nhưng không loại bỏ hoàn toàn. Chưa hỗ trợ tự
+đăng nhập lại bằng session đã lưu — cần quét QR lại mỗi khi service
+`zalo_bridge` restart.
+
+### Bảo mật đã kiểm tra
+
+- Auth JWT thật (`Authorization: Bearer`), 2 vai trò Admin/User, multi-tenant
+  theo HDV. Chỉ 2 route công khai cố ý: trang lịch trình khách xem
+  (`GET /api/v1/public/tours/{id}`, không có field cá nhân nào) và
+  `POST /auth/login`.
+- Secret nội bộ backend↔zalo-bridge (`API_KEY`) tách riêng khỏi auth người
+  dùng.
+- MySQL/Redis không publish port ra host — chỉ Docker network nội bộ.
+- Giới hạn dung lượng file upload (`MAX_UPLOAD_SIZE_MB`, mặc định 20MB).
+- CORS production đọc từ `ALLOWED_ORIGIN` — **phải set domain thật khi
   deploy**, để trống sẽ chặn hết kể cả frontend thật.
 
-## Quy trình sử dụng
+---
 
-1. Tải lên tài liệu lịch trình thô (Word/PDF/Excel) và danh sách khách.
-2. Agent AI phân tích và tự động tạo timeline chi tiết.
-3. HDV duyệt/chỉnh sửa trên giao diện.
-4. Gửi qua 1 trong 2 hình thức:
-   - **Zalo:** quét mã QR kết nối tài khoản cá nhân, gửi tin cá nhân hoá tới
-     từng khách.
-   - **Link công khai:** chỉ cần copy link lịch trình (`/t/<tour_id>`) gửi
-     qua bất kỳ đâu (SMS, email, in QR...) — khách tự mở xem, không cần kết
-     nối gì.
-5. Nhấn Gửi — Celery worker xếp hàng và gửi tin nhắn cá nhân hoá tới từng
-   khách theo đúng kênh đã chọn.
+## 8. Cấu trúc thư mục
+
+```
+viet-tour-agent-zalo/
+├── backend/                 # FastAPI + SQLAlchemy + Celery
+│   ├── app/
+│   │   ├── agents/          # Agent AI trích xuất/sinh timeline, format tin nhắn Zalo
+│   │   ├── api/v1/          # Route: tours, auth, admin_users, company, changelog, zalo...
+│   │   ├── core/            # config, security (JWT), crypto, dynamic_config, llm (đa provider)
+│   │   ├── models/          # SQLAlchemy models (Tour, Guest, User, RoomType...)
+│   │   ├── schemas/         # Pydantic schemas
+│   │   ├── services/        # notification/ (Zalo sender), room_assignment
+│   │   └── tasks/           # Celery worker
+│   └── alembic/versions/    # Migration DB
+├── frontend/                # Next.js App Router
+│   └── src/
+│       ├── app/             # Route theo file-based routing (dashboard, settings, t/[id]...)
+│       ├── components/      # UI components dùng chung
+│       └── lib/             # api client, auth context, server-side fetch helper
+├── zalo-bridge/              # Node.js sidecar bọc zca-js (QR login + gửi tin thật)
+├── docs/                     # QA-PLAN, QC-REPORT, VIBEHOST-SUBMIT, STITCH-DESIGN
+├── scripts/                  # app.sh (start/stop/restart/status tiện lợi)
+└── docker-compose.yml
+```
+
+---
+
+## 9. Tài liệu liên quan
+
+- `docs/QA-PLAN.md` — kế hoạch QA, rủi ro chính, test case luồng nghiệp vụ
+- `docs/QC-REPORT-2026-09-04.md` — kết quả QC gần nhất
+- `docs/VIBEHOST-SUBMIT.md` — thông số điền sẵn để nộp mẫu deploy
+- `docs/STITCH-DESIGN.md` — nguồn thiết kế UI (Google Stitch) + design token
+
+---
+

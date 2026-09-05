@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { api, EventWeather, TimelineEvent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { EventProgramButton } from "@/components/event-program-button";
 
 type Props = {
   tourId: string;
@@ -131,6 +132,14 @@ export function TimelineView({ tourId, startDate, events, weather, zaloConnected
                   </p>
                 )}
                 {event.notes && <p className="text-xs text-muted-foreground">⚠️ {event.notes}</p>}
+
+                {event.program && (
+                  <EventProgramButton
+                    title={event.title}
+                    timeLabel={`Ngày ${event.day_index} · ${event.start_time}`}
+                    program={event.program}
+                  />
+                )}
 
                 {isSent ? (
                   <p className="text-xs text-success">✓ Đã xếp hàng gửi cập nhật mốc này</p>

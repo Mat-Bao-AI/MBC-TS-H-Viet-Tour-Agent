@@ -27,6 +27,7 @@
 // bảo mật "1 link chung cho cả đoàn".
 import { useEffect, useMemo, useState } from "react";
 import { api, API_BASE, CompanyInfo, EventWeather, PublicTourView } from "@/lib/api";
+import { EventProgramButton } from "@/components/event-program-button";
 
 // Khớp đúng tập mô tả thời tiết backend trả về (weather_service._WEATHER_CODE_VI)
 const WEATHER_ICON: Record<string, string> = {
@@ -179,6 +180,13 @@ export function TourPublicClient({ tourId }: { tourId: string }) {
 
       {tour.ready && (
         <>
+          {tour.summary && (
+            <div className="mb-6 rounded-xl border border-[#e5e5e5] bg-white p-5 shadow-sm">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">Tóm tắt</p>
+              <p className="text-sm text-gray-700">{tour.summary}</p>
+            </div>
+          )}
+
           {activeWeather && <WeatherCard weather={activeWeather} />}
 
           {/* Tab chọn ngày — desktop */}
@@ -224,6 +232,15 @@ export function TourPublicClient({ tourId }: { tourId: string }) {
                       <div className="mt-3 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
                         <span className="material-symbols-outlined text-[#d97706]">info</span>
                         <p className="text-sm text-gray-600">{e.notes}</p>
+                      </div>
+                    )}
+                    {e.program && (
+                      <div className="mt-1">
+                        <EventProgramButton
+                          title={e.title}
+                          timeLabel={`Ngày ${e.day_index} · ${e.start_time}`}
+                          program={e.program}
+                        />
                       </div>
                     )}
                   </div>

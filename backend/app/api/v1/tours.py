@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 
 import openpyxl
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from openpyxl.styles import Font
 from sqlalchemy import select
@@ -23,6 +23,7 @@ from app.models.guest import DispatchStatus, Guest
 from app.models.room_type import RoomType
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
+from app.models.tour_source_file import TourSourceFile
 from app.models.user import User, UserRole
 from app.schemas.extraction import ExtractedGuest
 from app.schemas.room_assignment import AssignedGroupOut, AutoAssignRoomsResponse, UnassignedGroupOut
@@ -48,13 +49,21 @@ settings = get_settings()
 
 _CHUNK_SIZE = 1024 * 1024  # 1MB
 
+# Tài liệu lịch trình cho phép gộp tối đa 5 file (vé máy bay, khách sạn, giấy
+# mời, agenda...) thành 1 bộ nguồn cho 1 tour — giới hạn riêng 10MB/file
+# (chặt hơn MAX_UPLOAD_SIZE_MB mặc định 20MB dùng cho avatar/logo) để tránh
+# lạm dụng khi cho phép nhiều file cùng lúc.
+_MAX_ITINERARY_FILES = 5
+_MAX_ITINERARY_FILE_SIZE_MB = 10
 
-def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
+
+def _save_upload(file: UploadFile, tour_id: str, max_size_mb: int | None = None) -> tuple[str, str]:
     """Lưu file upload vào disk, trả về (đường dẫn đã lưu, tên file gốc).
 
-    Đọc theo chunk + chặn ngay khi vượt max_upload_size_mb — tránh vừa buffer
-    nguyên file khổng lồ vào RAM vừa ghi hết ra disk trước khi biết là quá lớn
-    (DoS bằng file dung lượng lớn).
+    Đọc theo chunk + chặn ngay khi vượt giới hạn — tránh vừa buffer nguyên
+    file khổng lồ vào RAM vừa ghi hết ra disk trước khi biết là quá lớn
+    (DoS bằng file dung lượng lớn). `max_size_mb` cho phép giới hạn chặt hơn
+    settings.max_upload_size_mb (vd tài liệu lịch trình).
     """
     upload_dir = Path(settings.upload_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +72,8 @@ def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
     saved_name = f"{tour_id}_{uuid.uuid4().hex[:8]}{ext}"
     saved_path = upload_dir / saved_name
 
-    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    limit_mb = max_size_mb if max_size_mb is not None else settings.max_upload_size_mb
+    max_bytes = limit_mb * 1024 * 1024
     total = 0
     try:
         with saved_path.open("wb") as out:
@@ -72,7 +82,7 @@ def _save_upload(file: UploadFile, tour_id: str) -> tuple[str, str]:
                 if total > max_bytes:
                     raise HTTPException(
                         status_code=413,
-                        detail=f"File vượt quá giới hạn {settings.max_upload_size_mb}MB.",
+                        detail=f"File '{file.filename}' vượt quá giới hạn {limit_mb}MB.",
                     )
                 out.write(chunk)
     except HTTPException:
@@ -127,23 +137,31 @@ def upsert_guests_from_extraction(
 @router.post("", response_model=TourCreateResponse)
 async def create_tour(
     background_tasks: BackgroundTasks,
-    itinerary_file: UploadFile,
+    itinerary_files: list[UploadFile] = File(...),
     guest_list_file: UploadFile | None = None,
     name: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TourCreateResponse:
+    if not itinerary_files:
+        raise HTTPException(status_code=400, detail="Cần ít nhất 1 tài liệu lịch trình.")
+    if len(itinerary_files) > _MAX_ITINERARY_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chỉ được tải lên tối đa {_MAX_ITINERARY_FILES} tài liệu lịch trình.",
+        )
+
     tour = Tour(
-        name=name or (itinerary_file.filename or "Tour chưa đặt tên"),
+        name=name or (itinerary_files[0].filename or "Tour chưa đặt tên"),
         status=TourStatus.DRAFT,
         owner_id=current_user.id,
     )
     db.add(tour)
     await db.flush()  # có tour.id trước khi lưu file, để đặt tên file theo id
 
-    source_path, source_filename = _save_upload(itinerary_file, tour.id)
-    tour.source_path = source_path
-    tour.source_filename = source_filename
+    for order_index, itinerary_file in enumerate(itinerary_files, start=1):
+        path, filename = _save_upload(itinerary_file, tour.id, max_size_mb=_MAX_ITINERARY_FILE_SIZE_MB)
+        db.add(TourSourceFile(tour_id=tour.id, path=path, filename=filename, order_index=order_index))
 
     if guest_list_file is not None:
         guest_list_path, guest_list_filename = _save_upload(guest_list_file, tour.id)
@@ -176,6 +194,7 @@ def tour_to_list_item(tour: Tour) -> TourListItem:
         start_date=tour.start_date,
         end_date=tour.end_date,
         status=tour.status,
+        tour_type=tour.tour_type,
         created_at=tour.created_at,
         guests_total=len(tour.guests),
         guests_sent=guests_sent,
@@ -248,8 +267,10 @@ async def get_tour(
         start_date=tour.start_date,
         end_date=tour.end_date,
         status=tour.status,
+        tour_type=tour.tour_type,
+        summary=tour.summary,
         process_error=tour.process_error,
-        source_filename=tour.source_filename,
+        source_filenames=[f.filename for f in tour.source_files],
         guest_list_filename=tour.guest_list_filename,
         guests=[GuestOut.model_validate(g) for g in tour.guests],
         timeline_events=(tour.timeline.events if tour.timeline else []),
@@ -278,9 +299,11 @@ async def delete_tour(
     trong AsyncSession nếu chưa load."""
     tour = await get_owned_tour(tour_id, db, current_user, with_relations=True)
 
-    for path in (tour.source_path, tour.guest_list_path, tour.cover_image_path):
+    for path in (tour.guest_list_path, tour.cover_image_path):
         if path:
             Path(path).unlink(missing_ok=True)
+    for source_file in tour.source_files:
+        Path(source_file.path).unlink(missing_ok=True)
 
     await db.delete(tour)
     await db.commit()
@@ -561,7 +584,7 @@ async def reprocess_tour(
 ) -> TourCreateResponse:
     """Chạy lại agent parse+timeline — dùng khi lần xử lý trước lỗi (status=failed)."""
     tour = await _get_tour_or_404(tour_id, db, current_user)
-    if not tour.source_path:
+    if not tour.source_files:
         raise HTTPException(status_code=400, detail="Tour chưa có tài liệu gốc để xử lý lại")
 
     from app.api.v1.agent import process_tour

@@ -4,6 +4,8 @@ Dùng làm target của `ChatGoogleGenerativeAI.with_structured_output(...)` —
 Gemini bắt buộc trả đúng shape này thay vì text tự do, giảm rủi ro parse lỗi.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -39,6 +41,22 @@ class ExtractedGuestList(BaseModel):
 
 class ExtractedTourInfo(BaseModel):
     tour_name: str = Field(description="Tên tour, suy ra từ tài liệu nếu không ghi rõ")
+    tour_type: Literal["tourism", "business_trip", "event"] = Field(
+        description=(
+            "Loại hình, tự nhận diện từ nội dung tài liệu: "
+            "'tourism' = có điểm đến tham quan/nghỉ dưỡng, đoàn khách du lịch; "
+            "'business_trip' = di chuyển vì công việc (vé bay/khách sạn kèm lịch họp), không phải tham quan; "
+            "'event' = tài liệu chủ yếu mô tả 1 hội thảo/hội nghị/chương trình cụ thể (agenda, thành phần, BTC)."
+        )
+    )
+    summary: str | None = Field(
+        default=None,
+        description=(
+            "Tóm tắt 2-3 câu giúp người đọc chuẩn bị: mục đích chuyến đi/sự kiện, "
+            "những điều cần lưu ý chính. CHỈ dựa trên nội dung tài liệu, không bịa; "
+            "để trống nếu tài liệu quá sơ sài để tóm tắt có ý nghĩa."
+        ),
+    )
     start_date: str | None = Field(default=None, description="Ngày bắt đầu, định dạng YYYY-MM-DD nếu xác định được")
     end_date: str | None = Field(default=None, description="Ngày kết thúc, định dạng YYYY-MM-DD nếu xác định được")
     destinations: list[str] = Field(

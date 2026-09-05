@@ -18,6 +18,19 @@ class TourStatus(str, enum.Enum):
     FAILED = "failed"  # agent xử lý lỗi (file hỏng, Gemini lỗi...) — HDV có thể bấm xử lý lại
 
 
+class TourType(str, enum.Enum):
+    """Phase 5 (2026-09-05) — tổng quát hoá ngoài tour du lịch thuần tuý,
+    dùng chung 1 hạ tầng (upload/agent/timeline/Zalo/trang công khai) cho cả
+    công tác/sự kiện. AI tự nhận diện từ tài liệu (xem parser_agent.py), HDV
+    không cần chọn tay. Field ảnh hưởng UI: BUSINESS_TRIP/EVENT ẩn quản lý
+    loại phòng (RoomTypeManager) — không có khái niệm "xếp phòng theo đoàn"
+    cho công tác/sự kiện."""
+
+    TOURISM = "tourism"  # Du lịch — có điểm đến tham quan, đoàn khách, xếp phòng
+    BUSINESS_TRIP = "business_trip"  # Công tác — di chuyển vì công việc (vé bay, khách sạn, họp)
+    EVENT = "event"  # Sự kiện — chủ yếu mô tả 1 hội thảo/hội nghị/chương trình cụ thể
+
+
 class Tour(Base):
     __tablename__ = "tours"
 
@@ -25,8 +38,6 @@ class Tour(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    source_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    source_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     guest_list_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     guest_list_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     process_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -43,6 +54,12 @@ class Tour(Base):
     status: Mapped[TourStatus] = mapped_column(
         Enum(TourStatus, native_enum=False, length=20), default=TourStatus.DRAFT, nullable=False
     )
+    tour_type: Mapped[TourType] = mapped_column(
+        Enum(TourType, native_enum=False, length=20), default=TourType.TOURISM, nullable=False
+    )
+    # Tóm tắt ngắn (2-3 câu) giúp người đọc chuẩn bị — AI rút từ tài liệu
+    # nguồn, KHÔNG bịa nếu tài liệu không đủ ý (xem parser_agent.py).
+    summary: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     # Multi-tenant theo HDV — nullable vì tour tạo TRƯỚC khi có hệ thống auth
     # (không có chủ) vẫn phải đọc/hiển thị được; seed_admin_if_configured()
     # (app/core/seed.py) backfill các tour này về Admin đầu tiên lúc khởi
@@ -65,3 +82,9 @@ class Tour(Base):
         "RoomType", back_populates="tour", cascade="all, delete-orphan"
     )
     owner: Mapped["User | None"] = relationship("User", back_populates="tours")
+    source_files: Mapped[list["TourSourceFile"]] = relationship(
+        "TourSourceFile",
+        back_populates="tour",
+        cascade="all, delete-orphan",
+        order_by="TourSourceFile.order_index",
+    )

@@ -1,13 +1,18 @@
 "use client";
 
 // Tạo Tour mới — theo thiết kế Stitch "Tạo Tour mới" (2 khung upload kéo-thả
-// + nút CTA lớn). Giữ nguyên logic upload/agent thật (POST /tours), chỉ đổi
-// giao diện.
+// + nút CTA lớn). Tài liệu lịch trình nhận TỐI ĐA 5 file (gộp thành 1 bộ
+// nguồn duy nhất — AI đọc hết rồi hợp nhất, xem backend/app/api/v1/agent.py)
+// để phục vụ cả trường hợp có nhiều tài liệu rời (vé máy bay, khách sạn,
+// giấy mời, agenda...), không chỉ 1 file lịch trình tour truyền thống.
 import { DragEvent, FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const MAX_ITINERARY_FILES = 5;
+const MAX_ITINERARY_FILE_SIZE_MB = 10;
 
 function Dropzone({
   label,
@@ -64,18 +69,133 @@ function Dropzone({
   );
 }
 
+function MultiDropzone({
+  label,
+  hint,
+  accept,
+  files,
+  onChange,
+  error,
+}: {
+  label: string;
+  hint: string;
+  accept: string;
+  files: File[];
+  onChange: (files: File[]) => void;
+  error: string | null;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  function addFiles(newFiles: FileList | File[]) {
+    onChange([...files, ...Array.from(newFiles)]);
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+  }
+
+  function removeAt(index: number) {
+    onChange(files.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3">
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`flex cursor-pointer flex-col items-center gap-1 rounded-md border-2 border-dashed py-6 text-center transition-colors ${
+          dragOver ? "border-primary bg-primary/5" : "border-border"
+        }`}
+      >
+        <span className="text-2xl text-primary">☁️⬆</span>
+        <span className="text-sm font-medium text-primary">Nhấn để tải lên</span>
+        <span className="text-xs text-muted-foreground">
+          Kéo thả hoặc chọn file — tối đa {MAX_ITINERARY_FILES} file, mỗi file ≤{MAX_ITINERARY_FILE_SIZE_MB}MB
+        </span>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) addFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {files.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {files.map((f, i) => (
+            <li
+              key={`${f.name}-${i}`}
+              className="flex items-center justify-between rounded-md bg-muted px-2.5 py-1.5 text-xs"
+            >
+              <span className="truncate">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                aria-label={`Bỏ ${f.name}`}
+                className="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+
+      {/* Yêu cầu #2: nói rõ giới hạn kỹ thuật để không ai kỳ vọng nhầm AI đọc
+          được ảnh chụp lịch trình/agenda — chỉ đọc text thuần. */}
+      <p className="text-xs text-muted-foreground">
+        ℹ️ Hệ thống chỉ phân tích được <b>chữ (text)</b> trong file — chưa đọc được nội dung trong hình ảnh
+        (ảnh chụp, ảnh chèn trong Word/PDF). Nếu tài liệu là ảnh chụp, hãy gõ lại thành văn bản trước khi tải lên.
+      </p>
+    </div>
+  );
+}
+
 export default function CreateTourPage() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [itineraryFile, setItineraryFile] = useState<File | null>(null);
+  const [itineraryFiles, setItineraryFiles] = useState<File[]>([]);
   const [guestListFile, setGuestListFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filesError, setFilesError] = useState<string | null>(null);
+
+  function handleItineraryFilesChange(next: File[]) {
+    if (next.length > MAX_ITINERARY_FILES) {
+      setFilesError(`Chỉ được chọn tối đa ${MAX_ITINERARY_FILES} file — đã bỏ bớt file thừa.`);
+      next = next.slice(0, MAX_ITINERARY_FILES);
+    } else {
+      const tooBig = next.find((f) => f.size > MAX_ITINERARY_FILE_SIZE_MB * 1024 * 1024);
+      setFilesError(tooBig ? `File "${tooBig.name}" vượt quá ${MAX_ITINERARY_FILE_SIZE_MB}MB.` : null);
+    }
+    setItineraryFiles(next);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!itineraryFile) {
-      setError("Cần chọn tài liệu lịch trình (PDF/DOCX/XLSX/TXT).");
+    if (itineraryFiles.length === 0) {
+      setError("Cần chọn ít nhất 1 tài liệu lịch trình (PDF/DOCX/XLSX/TXT).");
+      return;
+    }
+    if (itineraryFiles.some((f) => f.size > MAX_ITINERARY_FILE_SIZE_MB * 1024 * 1024)) {
+      setError(`Có file vượt quá ${MAX_ITINERARY_FILE_SIZE_MB}MB — vui lòng bỏ bớt trước khi gửi.`);
       return;
     }
     setSubmitting(true);
@@ -83,7 +203,7 @@ export default function CreateTourPage() {
     try {
       const formData = new FormData();
       if (name) formData.append("name", name);
-      formData.append("itinerary_file", itineraryFile);
+      for (const f of itineraryFiles) formData.append("itinerary_files", f);
       if (guestListFile) formData.append("guest_list_file", guestListFile);
 
       const result = await api.createTour(formData);
@@ -113,12 +233,13 @@ export default function CreateTourPage() {
           />
         </div>
 
-        <Dropzone
-          label="Tài liệu lịch trình tour"
-          hint="Tải lên lịch trình mẫu để AI học hỏi và tạo lịch trình tương tự."
+        <MultiDropzone
+          label="Tài liệu lịch trình"
+          hint="Tải lên 1-5 tài liệu để AI học hỏi và tạo lịch trình: lịch trình tour, vé máy bay, đặt phòng khách sạn, giấy mời, agenda hội thảo..."
           accept=".pdf,.docx,.xlsx,.txt"
-          file={itineraryFile}
-          onChange={setItineraryFile}
+          files={itineraryFiles}
+          onChange={handleItineraryFilesChange}
+          error={filesError}
         />
 
         <Dropzone

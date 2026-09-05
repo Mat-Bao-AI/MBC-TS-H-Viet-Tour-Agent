@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models.guest import DispatchStatus
-from app.models.tour import TourStatus
+from app.models.tour import TourStatus, TourType
 from app.schemas.timeline import TimelineEventSchema
 
 
@@ -74,6 +74,7 @@ class TourListItem(BaseModel):
     start_date: date | None
     end_date: date | None
     status: TourStatus
+    tour_type: TourType
     created_at: datetime
     guests_total: int = 0
     # "Đã gửi" = dispatch_status khác pending/failed (sent/read/confirmed) —
@@ -89,8 +90,10 @@ class TourDetail(BaseModel):
     start_date: date | None
     end_date: date | None
     status: TourStatus
+    tour_type: TourType
+    summary: str | None
     process_error: str | None
-    source_filename: str | None
+    source_filenames: list[str]
     guest_list_filename: str | None
     guests: list[GuestOut]
     timeline_events: list[TimelineEventSchema]

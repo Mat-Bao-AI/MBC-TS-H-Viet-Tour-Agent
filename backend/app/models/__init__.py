@@ -8,11 +8,13 @@ from app.models.guest import DispatchStatus, Guest
 from app.models.room_type import RoomType
 from app.models.timeline_event import Timeline
 from app.models.tour import Tour, TourStatus
+from app.models.tour_source_file import TourSourceFile
 from app.models.user import User, UserRole
 
 __all__ = [
     "Tour",
     "TourStatus",
+    "TourSourceFile",
     "Guest",
     "DispatchStatus",
     "Timeline",

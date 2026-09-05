@@ -44,6 +44,8 @@ async def get_public_tour(tour_id: str, db: AsyncSession = Depends(get_db)) -> P
     return PublicTourView(
         id=tour.id,
         name=tour.name,
+        tour_type=tour.tour_type,
+        summary=tour.summary,
         start_date=tour.start_date,
         end_date=tour.end_date,
         ready=bool(timeline_events),

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { api, EventWeather, RoomType, TimelineEvent, TourDetail, ZaloLoginStatus } from "@/lib/api";
+import { api, EventWeather, RoomType, TimelineEvent, TOUR_TYPE_LABEL, TourDetail, ZaloLoginStatus } from "@/lib/api";
 import { TimelineBuilder } from "@/components/timeline-builder";
 import { TimelineView } from "@/components/timeline-view";
 import { QuickUpdateSheet } from "@/components/quick-update-sheet";
@@ -113,6 +113,8 @@ export default function ReviewTourPage() {
             <h1 className="text-xl font-semibold">{tour.name}</h1>
             <p className="text-sm text-muted-foreground">
               {tour.start_date ? `${tour.start_date} → ${tour.end_date ?? "?"}` : "Chưa xác định ngày"}
+              {" · "}
+              {TOUR_TYPE_LABEL[tour.tour_type]}
             </p>
           </div>
         </div>
@@ -121,6 +123,15 @@ export default function ReviewTourPage() {
           <DeleteTourButton tourId={tourId} tourName={tour.name} />
         </div>
       </div>
+
+      {tour.summary && (
+        <Card>
+          <CardContent className="py-4 text-sm">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tóm tắt</p>
+            {tour.summary}
+          </CardContent>
+        </Card>
+      )}
 
       <CoverImageCard tourId={tourId} hasCoverImage={tour.has_cover_image} onChanged={load} />
 
@@ -175,12 +186,14 @@ export default function ReviewTourPage() {
             </CardContent>
           </Card>
 
-          <RoomTypeManager
-            tourId={tourId}
-            roomTypes={roomTypes}
-            onChanged={loadRoomTypes}
-            onGuestsChanged={load}
-          />
+          {tour.tour_type === "tourism" && (
+            <RoomTypeManager
+              tourId={tourId}
+              roomTypes={roomTypes}
+              onChanged={loadRoomTypes}
+              onGuestsChanged={load}
+            />
+          )}
 
           <Card>
             <CardHeader>

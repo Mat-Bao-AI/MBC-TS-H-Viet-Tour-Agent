@@ -39,7 +39,28 @@ export type LoginResponse = {
 };
 
 export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
+export type TourType = "tourism" | "business_trip" | "event";
+export const TOUR_TYPE_LABEL: Record<TourType, string> = {
+  tourism: "Du lịch",
+  business_trip: "Công tác",
+  event: "Sự kiện",
+};
 export type DispatchGuestStatus = "pending" | "sent" | "read" | "confirmed" | "failed";
+
+export type AgendaItem = {
+  time: string | null;
+  content: string;
+  speaker: string | null;
+};
+
+export type EventProgram = {
+  organizer: string | null;
+  attendees: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  agenda: AgendaItem[];
+  suggestions: string[];
+};
 
 export type TimelineEvent = {
   day_index: number;
@@ -47,6 +68,9 @@ export type TimelineEvent = {
   title: string;
   location: string | null;
   notes: string | null;
+  // Chỉ có khi AI nhận diện mốc này là sự kiện chính có chương trình chi
+  // tiết riêng (hội thảo/họp) trong tài liệu nguồn — xem timeline_agent.py.
+  program?: EventProgram | null;
 };
 
 export type Guest = {
@@ -71,6 +95,7 @@ export type TourListItem = {
   start_date: string | null;
   end_date: string | null;
   status: TourStatus;
+  tour_type: TourType;
   created_at: string;
   guests_total: number;
   guests_sent: number;
@@ -121,8 +146,9 @@ export type AutoAssignRoomsResponse = {
 };
 
 export type TourDetail = TourListItem & {
+  summary: string | null;
   process_error: string | null;
-  source_filename: string | null;
+  source_filenames: string[];
   guest_list_filename: string | null;
   guests: Guest[];
   timeline_events: TimelineEvent[];
@@ -155,6 +181,8 @@ export type EventWeather = {
 export type PublicTourView = {
   id: string;
   name: string;
+  tour_type: TourType;
+  summary: string | null;
   start_date: string | null;
   end_date: string | null;
   ready: boolean;

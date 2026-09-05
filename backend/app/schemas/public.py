@@ -8,12 +8,15 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.models.tour import TourType
 from app.schemas.timeline import EventWeather, TimelineEventSchema
 
 
 class PublicTourView(BaseModel):
     id: str
     name: str
+    tour_type: TourType
+    summary: str | None = None
     start_date: date | None
     end_date: date | None
     # False khi HDV chưa duyệt xong timeline (agent còn đang xử lý / lỗi) —

@@ -29,7 +29,10 @@ async def _parse_node(state: DocumentProcessingState) -> dict:
 
 async def _timeline_node(state: DocumentProcessingState) -> dict:
     assert state["extracted"] is not None, "extracted phải có trước khi build timeline"
-    events = await timeline_agent.build_timeline(state["extracted"])
+    # Truyền toàn văn tài liệu gốc (không chỉ bản tóm tắt extracted) — cần đủ
+    # ngữ cảnh để trích agenda/thành phần/liên hệ chi tiết cho field
+    # `program` của các mốc sự kiện chính (Phase 5, xem timeline.py).
+    events = await timeline_agent.build_timeline(state["extracted"], state["itinerary_text"])
     return {"events": events}
 
 

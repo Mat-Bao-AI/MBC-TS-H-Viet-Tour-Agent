@@ -3,6 +3,36 @@
 from pydantic import BaseModel, Field
 
 
+class AgendaItemSchema(BaseModel):
+    time: str | None = Field(
+        default=None, description="Khung giờ mục này trong chương trình con, vd '14:00-14:10'; để trống nếu tài liệu không ghi rõ"
+    )
+    content: str = Field(description="Nội dung mục chương trình")
+    speaker: str | None = Field(default=None, description="Người trình bày/phụ trách nếu tài liệu có ghi rõ")
+
+
+class EventProgramSchema(BaseModel):
+    """Chương trình con của 1 mốc timeline — CHỈ tồn tại khi tài liệu nguồn
+    mô tả chi tiết riêng cho mốc đó (agenda, thành phần tham dự, liên hệ
+    BTC) như 1 hội thảo/hội nghị/buổi họp có giấy mời/chương trình riêng.
+    Mốc đơn giản (ăn uống, di chuyển, nghỉ ngơi) KHÔNG có program (None)."""
+
+    organizer: str | None = Field(default=None, description="Đơn vị/người tổ chức, nếu tài liệu có ghi")
+    attendees: str | None = Field(default=None, description="Thành phần tham dự, nếu tài liệu có mô tả")
+    contact_name: str | None = Field(default=None, description="Tên người liên hệ của BTC, nếu có")
+    contact_phone: str | None = Field(default=None, description="SĐT liên hệ BTC, nếu có")
+    agenda: list[AgendaItemSchema] = Field(
+        default_factory=list, description="Chi tiết chương trình theo thứ tự thời gian, lấy đúng từ tài liệu"
+    )
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Gợi ý chuẩn bị/lưu ý RÚT THẲNG từ nội dung tài liệu (vd trang phục, giờ giấc, mang gì) — "
+            "KHÔNG suy diễn quan hệ kinh doanh/chiến lược không có căn cứ trong tài liệu."
+        ),
+    )
+
+
 class TimelineEventSchema(BaseModel):
     day_index: int = Field(description="Ngày thứ mấy trong tour, bắt đầu từ 1 (Day 1, Day 2...)")
     start_time: str = Field(description="Giờ bắt đầu, định dạng HH:MM 24h")
@@ -11,6 +41,15 @@ class TimelineEventSchema(BaseModel):
     notes: str | None = Field(
         default=None,
         description="Lưu ý thực tế cho khách: trang phục, vật dụng cần mang, lưu ý sức khoẻ...",
+    )
+    program: EventProgramSchema | None = Field(
+        default=None,
+        description=(
+            "CHỈ điền khi tài liệu nguồn mô tả chi tiết riêng cho mốc này (hội thảo/hội nghị/họp có "
+            "agenda/thành phần/liên hệ riêng) — để None cho mốc đơn giản (ăn uống, di chuyển, nghỉ ngơi, "
+            "check-in/check-out). Không tự bịa program nếu tài liệu chỉ nhắc tên sự kiện mà không có "
+            "chương trình chi tiết đi kèm."
+        ),
     )
 
 

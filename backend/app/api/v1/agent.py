@@ -10,11 +10,12 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSessionLocal
 from app.models.guest import Guest
 from app.models.timeline_event import Timeline
-from app.models.tour import Tour, TourStatus
+from app.models.tour import Tour, TourStatus, TourType
 from app.schemas.tour import TourDetail
 from app.services import file_processor
 
@@ -27,7 +28,7 @@ async def process_tour(tour_id: str) -> None:
     from app.agents import process_tour_documents  # tránh import vòng lúc module load
 
     async with AsyncSessionLocal() as db:
-        tour = await db.get(Tour, tour_id)
+        tour = await db.get(Tour, tour_id, options=[selectinload(Tour.source_files)])
         if tour is None:
             logger.error("process_tour: không tìm thấy tour %s", tour_id)
             return
@@ -37,7 +38,10 @@ async def process_tour(tour_id: str) -> None:
         await db.commit()
 
         try:
-            itinerary_text = file_processor.extract_text(tour.source_path)
+            source_files = sorted(tour.source_files, key=lambda f: f.order_index)
+            itinerary_text = "\n\n".join(
+                f"--- Tài liệu: {f.filename} ---\n{file_processor.extract_text(f.path)}" for f in source_files
+            )
             guest_list_text = (
                 file_processor.extract_text(tour.guest_list_path) if tour.guest_list_path else None
             )
@@ -48,6 +52,8 @@ async def process_tour(tour_id: str) -> None:
 
             if extracted.tour_name:
                 tour.name = extracted.tour_name
+            tour.tour_type = TourType(extracted.tour_type)
+            tour.summary = extracted.summary
             if extracted.start_date:
                 try:
                     tour.start_date = date.fromisoformat(extracted.start_date)

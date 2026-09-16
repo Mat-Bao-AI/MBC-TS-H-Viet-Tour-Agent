@@ -22,6 +22,13 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# server.js (Next standalone output) mặc định bind "localhost" — nghe đúng
+# cổng nhưng KHÔNG nhận request từ ngoài container (đúng lỗi gặp thật khi
+# deploy Vibe Host: "App lắng nghe cổng 3000 nhưng HTTP không phản hồi").
+# Next.js Docker example chính thức luôn set 2 biến này — thiếu là lỗi kinh
+# điển, không phải lỗi cấu hình riêng của app này.
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=3000
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

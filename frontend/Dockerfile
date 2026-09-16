@@ -10,10 +10,12 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # NEXT_PUBLIC_* được Next.js inline ngay lúc build, không đọc được từ runtime
 # env_file của docker-compose — phải truyền vào như build arg.
+# (Đã bỏ NEXT_PUBLIC_API_KEY — auth chuyển sang JWT thật, biến này không còn
+# được dùng ở đâu trong frontend/src nữa. Giữ lại ARG chết dễ khiến hệ tự-quét
+# env của nền tảng deploy tưởng đây là biến cần cấp — xem lesson VITE_API_URL
+# ở Legal_AI_Platform.)
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ARG NEXT_PUBLIC_API_KEY=
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_API_KEY=${NEXT_PUBLIC_API_KEY}
 RUN npm run build
 
 FROM node:22-alpine AS runner

@@ -18,6 +18,15 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// Nền tảng deploy (Vibe Host) probe path nào cho health check không rõ ràng
+// với app Node "chung chung" (không có convention như FastAPI/Next) — deploy
+// thật đã gặp lỗi 500 vì health check hit "/" (rơi vào middleware x-api-key
+// bên dưới, báo "API_KEY chưa cấu hình" dù API_KEY đã set đúng). Trả 200 luôn
+// ở "/" để không phụ thuộc đoán đúng path, tương tự "/health".
+app.get("/", (_req, res) => {
+  res.json({ ok: true, service: "zalo-bridge" });
+});
+
 // API key tối thiểu — cùng cơ chế với backend (app/core/security.py). Service
 // này gọi trực tiếp được API gửi tin Zalo cá nhân nên đặc biệt cần chặn truy
 // cập ngẫu nhiên nếu port 4000 lỡ lộ ra ngoài mạng nội bộ.

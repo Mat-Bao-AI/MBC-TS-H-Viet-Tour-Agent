@@ -6,6 +6,7 @@ app khởi động thay vì lỗi mơ hồ giữa chừng lúc gọi Gemini/MySQ
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,21 @@ class Settings(BaseSettings):
     database_url: str = (
         "mysql+aiomysql://tourguide:tourguide_pass@localhost:3306/tourguide_db?charset=utf8mb4"
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def _ensure_async_driver(cls, v: str) -> str:
+        """Một số nền tảng deploy tự tiêm DATABASE_URL dạng "mysql://..." trần
+        (không khai driver) — SQLAlchemy `create_engine`/`create_async_engine`
+        khi đó tự chọn dialect MẶC ĐỊNH "mysqldb" (cần package MySQLdb/
+        mysqlclient KHÔNG có trong requirements.txt, chỉ có aiomysql+pymysql),
+        app crash ngay lúc import `ModuleNotFoundError: No module named
+        'MySQLdb'` — xảy ra thật khi deploy lên Vibe Host (2026-09-16), DB do
+        nền tảng tự tạo tiêm URL không kèm "+aiomysql". Tự thêm driver vào
+        thay vì bắt người vận hành luôn phải tự sửa lại giá trị nền tảng cấp."""
+        if v.startswith("mysql://"):
+            return v.replace("mysql://", "mysql+aiomysql://", 1)
+        return v
 
     # Redis / Celery
     redis_url: str = "redis://localhost:6379/0"

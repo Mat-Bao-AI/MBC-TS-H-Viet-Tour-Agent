@@ -25,6 +25,9 @@ backend/storage/uploads/
 # Logs
 *.log
 
+# Local operator scripts — giữ trên máy, không phân phối qua repository.
+/scripts/
+
 # OS
 .DS_Store
 

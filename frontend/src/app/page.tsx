@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { api, TourListItem } from "@/lib/api";
+import { api, API_BASE, TourListItem } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/badge";
 import { tripPhase } from "@/lib/utils";
 
@@ -106,13 +106,22 @@ export default function HomePage() {
           return (
             <Link key={tour.id} href={`/tours/${tour.id}/review`}>
               <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50">
-                <div className="flex h-24 items-center justify-center rounded-md bg-gradient-to-br from-primary/20 to-secondary/20 text-3xl">
-                  🏞️
+                <div className="relative h-24 overflow-hidden rounded-md bg-gradient-to-br from-primary/20 to-secondary/20">
+                  {tour.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`${API_BASE}${tour.cover_image_url}`}
+                      alt={`Ảnh bìa ${tour.name}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-3xl">🏞️</div>
+                  )}
+                  <span className="absolute right-2 top-2">
+                    <StatusBadge status={tour.status} />
+                  </span>
                 </div>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold leading-snug">{tour.name}</p>
-                  <StatusBadge status={tour.status} />
-                </div>
+                <p className="font-semibold leading-snug">{tour.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {tour.start_date ? `📅 ${tour.start_date} → ${tour.end_date ?? "?"}` : "📅 Chưa xác định ngày"}
                   {" · "}👥 {tour.guests_total} khách

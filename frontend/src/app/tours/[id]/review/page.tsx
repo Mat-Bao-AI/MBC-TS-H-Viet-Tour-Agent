@@ -14,6 +14,7 @@ import { DeleteTourButton } from "@/components/delete-tour-button";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackIcon } from "@/components/navigation-icons";
 
 export default function ReviewTourPage() {
   const params = useParams<{ id: string }>();
@@ -36,7 +37,7 @@ export default function ReviewTourPage() {
       const data = await api.getTour(tourId);
       setTour(data);
       setEvents(data.timeline_events);
-      if (data.start_date && (data.status === "review" || data.status === "dispatched")) {
+      if (data.start_date && (data.status === "review" || data.status === "ready_to_send" || data.status === "dispatched")) {
         api.getTourWeather(tourId).then(setWeather).catch(() => {});
       }
     } catch (err) {
@@ -59,7 +60,7 @@ export default function ReviewTourPage() {
     // Poll trong lúc agent đang parse — dừng poll khi đã có kết quả (review/dispatched/failed)
     const interval = setInterval(() => {
       setTour((current) => {
-        if (current && (current.status === "review" || current.status === "dispatched" || current.status === "failed")) {
+        if (current && (current.status === "review" || current.status === "ready_to_send" || current.status === "dispatched" || current.status === "failed")) {
           return current;
         }
         load();
@@ -95,11 +96,42 @@ export default function ReviewTourPage() {
     }
   }
 
+  async function handleConfirm() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api.confirmTimeline(tourId);
+      setTour(updated);
+      setEvents(updated.timeline_events);
+      setSaveMessage("Đã xác nhận lịch trình. Có thể gửi thông báo cho khách.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReopen() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api.reopenTimeline(tourId);
+      setTour(updated);
+      setEvents(updated.timeline_events);
+      setEditing(true);
+      setSaveMessage(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!tour) return <p className="text-sm text-muted-foreground">Đang tải...</p>;
 
   const isProcessing = tour.status === "draft" || tour.status === "parsing";
-  const isReadyForTimeline = tour.status === "review" || tour.status === "dispatched";
+  const isReadyForTimeline = tour.status === "review" || tour.status === "ready_to_send" || tour.status === "dispatched";
   const zaloConnected = zaloStatus?.status === "success";
 
   return (
@@ -107,7 +139,7 @@ export default function ReviewTourPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-            ←
+          <BackIcon />
           </button>
           <div>
             <h1 className="text-xl font-semibold">{tour.name}</h1>
@@ -116,10 +148,12 @@ export default function ReviewTourPage() {
               {" · "}
               {TOUR_TYPE_LABEL[tour.tour_type]}
             </p>
+            <div className="mt-2">
+              <StatusBadge status={tour.status} />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <StatusBadge status={tour.status} />
           <DeleteTourButton tourId={tourId} tourName={tour.name} />
         </div>
       </div>
@@ -129,6 +163,18 @@ export default function ReviewTourPage() {
           <CardContent className="py-4 text-sm">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tóm tắt</p>
             {tour.summary}
+          </CardContent>
+        </Card>
+      )}
+
+      {tour.source_url && (
+        <Card>
+          <CardContent className="py-3 text-sm">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nguồn web</p>
+            <a href={tour.source_url} target="_blank" rel="noreferrer" className="break-all text-primary underline">
+              {tour.source_title || tour.source_url}
+            </a>
+            <p className="mt-1 text-xs text-muted-foreground">Brave Search (nếu được cấu hình) chỉ được dùng để bổ sung thông tin tham khảo.</p>
           </CardContent>
         </Card>
       )}
@@ -159,9 +205,23 @@ export default function ReviewTourPage() {
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle>Lịch trình</CardTitle>
-              <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
-                {editing ? "Xong" : "✏️ Sửa"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {tour.status === "review" && !editing && (
+                  <Button size="sm" onClick={handleConfirm} disabled={saving}>
+                    {saving ? "Đang xác nhận..." : "Xác nhận lịch trình"}
+                  </Button>
+                )}
+                {tour.status === "ready_to_send" && !editing && (
+                  <Button size="sm" variant="outline" onClick={handleReopen} disabled={saving}>
+                    {saving ? "Đang mở lại..." : "Sửa lại lịch trình"}
+                  </Button>
+                )}
+                {tour.status === "review" && (
+                  <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
+                    {editing ? "Xong" : "Sửa"}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {editing ? (
@@ -180,6 +240,7 @@ export default function ReviewTourPage() {
                   startDate={tour.start_date}
                   events={events}
                   weather={weather}
+                  mapPoints={tour.map_points ?? []}
                   zaloConnected={zaloConnected}
                 />
               )}

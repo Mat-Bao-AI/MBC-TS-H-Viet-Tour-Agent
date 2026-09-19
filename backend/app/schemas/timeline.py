@@ -42,6 +42,17 @@ class TimelineEventSchema(BaseModel):
         default=None,
         description="Lưu ý thực tế cho khách: trang phục, vật dụng cần mang, lưu ý sức khoẻ...",
     )
+
+
+class MapPoint(BaseModel):
+    """Địa điểm đã được định vị để hiển thị trên bản đồ OSM."""
+
+    day_index: int
+    title: str
+    location: str
+    latitude: float
+    longitude: float
+    display_name: str | None = None
     program: EventProgramSchema | None = Field(
         default=None,
         description=(

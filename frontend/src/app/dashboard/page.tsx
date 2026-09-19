@@ -14,13 +14,14 @@
 // đón"/"đổi giờ khởi hành" mà hệ thống chưa ghi nhận được, không bịa thêm.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, DashboardSummary, ZaloLoginStatus } from "@/lib/api";
+import { api, API_BASE, DashboardSummary, ZaloLoginStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
 import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { tripPhase, TRIP_PHASE_LABEL } from "@/lib/utils";
 import { useCompanyName } from "@/lib/use-company-name";
+import { ChartIcon, EyeIcon, ListIcon } from "@/components/action-icons";
 
 export default function DashboardPage() {
   const companyName = useCompanyName();
@@ -84,8 +85,20 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
         {tour && (
           <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:col-span-2 lg:p-5">
-            <div className="relative flex h-28 items-center justify-center rounded-md bg-gradient-to-br from-primary/20 to-secondary/20 text-4xl lg:h-40">
-              🏞️
+            <div className="relative h-28 overflow-hidden rounded-md bg-gradient-to-br from-primary/20 to-secondary/20 lg:h-40">
+              {tour.cover_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`${API_BASE}${tour.cover_image_url}`}
+                  alt={`Ảnh bìa ${tour.name}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-4xl">🏞️</div>
+              )}
+              <span className="absolute left-3 top-3">
+                <StatusBadge status={tour.status} />
+              </span>
               {phase && (
                 <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold text-primary shadow-sm">
                   <span className="material-symbols-outlined text-sm">check_circle</span>
@@ -93,7 +106,7 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <div className="flex items-start justify-between">
+            <div>
               <div>
                 <p className="text-lg font-bold lg:text-xl">{tour.name}</p>
                 <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground lg:text-sm">
@@ -107,7 +120,6 @@ export default function DashboardPage() {
                   </span>
                 </div>
               </div>
-              <StatusBadge status={tour.status} />
             </div>
 
             {tour.guests_total > 0 && (
@@ -142,21 +154,21 @@ export default function DashboardPage() {
                 href={`/tours/${tour.id}/review`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
               >
-                <span className="material-symbols-outlined text-base">visibility</span>
+                <EyeIcon />
                 Xem lịch trình
               </Link>
               <Link
                 href={`/tours/${tour.id}/dispatch`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
               >
-                <span className="material-symbols-outlined text-base">list_alt</span>
+                <ListIcon />
                 Danh sách khách
               </Link>
               <Link
                 href={`/tours/${tour.id}/dispatch`}
                 className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary hover:bg-muted lg:ml-auto"
               >
-                <span className="material-symbols-outlined text-base">bar_chart</span>
+                <ChartIcon />
                 Thống kê gửi tin
               </Link>
             </div>

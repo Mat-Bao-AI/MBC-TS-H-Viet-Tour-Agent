@@ -68,3 +68,11 @@ class ExtractedTourInfo(BaseModel):
     guests: list[ExtractedGuest] = Field(
         default_factory=list, description="Danh sách khách trích xuất được (từ tài liệu lịch trình và/hoặc danh sách đoàn)"
     )
+
+
+class UrlTravelRelevance(BaseModel):
+    """Kết quả gate trước khi cho phép tạo tour từ một URL công khai."""
+
+    is_travel_related: bool = Field(description="True chỉ khi nội dung có thông tin hữu ích để lập lịch trình du lịch")
+    reason: str = Field(description="Giải thích ngắn, thân thiện với người dùng")
+    destinations: list[str] = Field(default_factory=list, description="Địa điểm du lịch nhận diện được, theo thứ tự xuất hiện")

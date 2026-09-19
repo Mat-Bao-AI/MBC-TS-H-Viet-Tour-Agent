@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.v1.tours import compute_tour_weather
+from app.api.v1.tours import compute_tour_map_points, compute_tour_weather
 from app.core.database import get_db
 from app.models.tour import Tour
 from app.schemas.public import PublicTourView
@@ -51,6 +51,7 @@ async def get_public_tour(tour_id: str, db: AsyncSession = Depends(get_db)) -> P
         ready=bool(timeline_events),
         timeline_events=timeline_events,
         weather=weather,
+        map_points=await compute_tour_map_points(tour),
         cover_image_url=f"/api/v1/public/tours/{tour.id}/cover" if tour.cover_image_path else None,
     )
 

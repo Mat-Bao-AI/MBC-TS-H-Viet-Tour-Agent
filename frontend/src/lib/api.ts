@@ -38,7 +38,7 @@ export type LoginResponse = {
   user: UserOut;
 };
 
-export type TourStatus = "draft" | "parsing" | "review" | "dispatched" | "failed";
+export type TourStatus = "draft" | "parsing" | "review" | "ready_to_send" | "dispatched" | "failed";
 export type TourType = "tourism" | "business_trip" | "event";
 export const TOUR_TYPE_LABEL: Record<TourType, string> = {
   tourism: "Du lịch",
@@ -99,6 +99,7 @@ export type TourListItem = {
   created_at: string;
   guests_total: number;
   guests_sent: number;
+  cover_image_url: string | null;
 };
 
 export type DashboardActivity = {
@@ -155,6 +156,18 @@ export type TourDetail = TourListItem & {
   updated_at: string;
   zalo_group_id: string | null;
   has_cover_image: boolean;
+  source_url: string | null;
+  source_title: string | null;
+  map_points: MapPoint[];
+};
+
+export type MapPoint = {
+  day_index: number;
+  title: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  display_name: string | null;
 };
 
 export type ZaloLoginStatus = {
@@ -189,10 +202,11 @@ export type PublicTourView = {
   timeline_events: TimelineEvent[];
   weather: EventWeather[];
   cover_image_url: string | null;
+  map_points: MapPoint[];
 };
 
 export type AIProviderStatus = {
-  provider: "gemini" | "azure_openai";
+  provider: string;
   label: string;
   configured: boolean;
   source: "db" | "env" | "none";
@@ -200,6 +214,8 @@ export type AIProviderStatus = {
 
 export type SystemSettings = {
   ai_providers: AIProviderStatus[];
+  brave_search: AIProviderStatus;
+  vietmap: AIProviderStatus;
   llm_primary_provider: string;
   effective_primary_provider: string | null;
 };
@@ -217,6 +233,13 @@ export type HealthStatus = {
     primary: string | null;
     fallback_active: boolean;
   };
+};
+
+export type UrlValidationResult = {
+  valid: boolean;
+  title: string | null;
+  message: string;
+  destinations: string[];
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -237,7 +260,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // nghiệp vụ thường gặp nên tách message riêng thay vì lẫn vào text lỗi
     // chung chung.
     if (res.status === 401) throw new Error("UNAUTHORIZED");
-    throw new Error(`API ${path} lỗi ${res.status}: ${text}`);
+    let message = text;
+    try {
+      const payload = JSON.parse(text) as { detail?: string };
+      message = payload.detail || message;
+    } catch {
+      // Keep plain-text server errors as-is.
+    }
+    throw new Error(message || "Không thể thực hiện yêu cầu.");
   }
   if (res.status === 204) return undefined as T; // vd DELETE — không có body để parse
   return res.json();
@@ -298,6 +328,19 @@ export const api = {
       body: formData,
     }),
 
+  validateTourUrl: (sourceUrl: string) =>
+    request<UrlValidationResult>("/tours/validate-url", {
+      method: "POST",
+      body: JSON.stringify({ source_url: sourceUrl }),
+    }),
+
+  createTourFromUrl: (payload: {
+    source_url: string;
+    start_date: string;
+    end_date: string;
+    confirm_same_day: boolean;
+  }) => request<{ id: string; status: TourStatus; message: string }>("/tours/from-url", { method: "POST", body: JSON.stringify(payload) }),
+
   getTour: (id: string) => request<TourDetail>(`/tours/${id}`),
 
   setCoverImage: (tourId: string, file: File) => {
@@ -320,6 +363,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ events }),
     }),
+
+  confirmTimeline: (id: string) => request<TourDetail>(`/tours/${id}/confirm`, { method: "POST" }),
+
+  reopenTimeline: (id: string) => request<TourDetail>(`/tours/${id}/reopen`, { method: "POST" }),
 
   updateGuest: (tourId: string, guestId: string, payload: Partial<Guest>) =>
     request<Guest>(`/tours/${tourId}/guests/${guestId}`, {
@@ -525,6 +572,16 @@ export const api = {
     }),
 
   clearAzureOpenAIConfig: () => request<void>("/admin/settings/ai-providers/azure-openai", { method: "DELETE" }),
+
+  setBraveSearchConfig: (apiKey: string) =>
+    request<void>("/admin/settings/brave-search", { method: "PUT", body: JSON.stringify({ api_key: apiKey }) }),
+  clearBraveSearchConfig: () => request<void>("/admin/settings/brave-search", { method: "DELETE" }),
+  testBraveSearch: () => request<{ ok: boolean; message: string }>("/admin/settings/brave-search/test", { method: "POST" }),
+
+  setVietmapConfig: (apiKey: string) =>
+    request<void>("/admin/settings/vietmap", { method: "PUT", body: JSON.stringify({ api_key: apiKey }) }),
+  clearVietmapConfig: () => request<void>("/admin/settings/vietmap", { method: "DELETE" }),
+  testVietmap: () => request<{ ok: boolean; message: string }>("/admin/settings/vietmap/test", { method: "POST" }),
 
   setLlmPrimaryProvider: (provider: string) =>
     request<void>("/admin/settings/llm-primary-provider", {

@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/user-avatar";
+import { BackIcon } from "@/components/navigation-icons";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -89,7 +90,7 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-5 pt-2 pb-10">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <h1 className="text-xl font-bold">Hồ sơ cá nhân</h1>
       </div>

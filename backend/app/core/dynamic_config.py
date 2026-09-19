@@ -128,6 +128,28 @@ async def azure_openai_configured() -> bool:
     return all(is_configured_value(v) for v in (cfg["endpoint"], cfg["api_key"], cfg["deployment"]))
 
 
+async def get_brave_search_api_key() -> str:
+    cfg = await get_ai_provider_config("brave_search")
+    if cfg and cfg.get("api_key"):
+        return cfg["api_key"]
+    return get_settings().brave_search_api_key
+
+
+async def brave_search_configured() -> bool:
+    return is_configured_value(await get_brave_search_api_key())
+
+
+async def get_vietmap_api_key() -> str:
+    cfg = await get_ai_provider_config("vietmap")
+    if cfg and cfg.get("api_key"):
+        return cfg["api_key"]
+    return get_settings().vietmap_api_key
+
+
+async def vietmap_configured() -> bool:
+    return is_configured_value(await get_vietmap_api_key())
+
+
 async def configured_llm_providers() -> list[str]:
     providers = []
     if await gemini_configured():

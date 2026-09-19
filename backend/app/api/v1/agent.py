@@ -38,10 +38,13 @@ async def process_tour(tour_id: str) -> None:
         await db.commit()
 
         try:
-            source_files = sorted(tour.source_files, key=lambda f: f.order_index)
-            itinerary_text = "\n\n".join(
-                f"--- Tài liệu: {f.filename} ---\n{file_processor.extract_text(f.path)}" for f in source_files
-            )
+            if tour.source_content:
+                itinerary_text = f"--- Nguồn web: {tour.source_url or 'không rõ URL'} ---\n{tour.source_content}"
+            else:
+                source_files = sorted(tour.source_files, key=lambda f: f.order_index)
+                itinerary_text = "\n\n".join(
+                    f"--- Tài liệu: {f.filename} ---\n{file_processor.extract_text(f.path)}" for f in source_files
+                )
             guest_list_text = (
                 file_processor.extract_text(tour.guest_list_path) if tour.guest_list_path else None
             )
@@ -54,12 +57,14 @@ async def process_tour(tour_id: str) -> None:
                 tour.name = extracted.tour_name
             tour.tour_type = TourType(extracted.tour_type)
             tour.summary = extracted.summary
-            if extracted.start_date:
+            # URL flow bắt buộc HDV chọn ngày trước khi Agent chạy. Không để
+            # ngày cũ/không rõ năm trên web ghi đè lựa chọn có chủ đích đó.
+            if extracted.start_date and not tour.source_url:
                 try:
                     tour.start_date = date.fromisoformat(extracted.start_date)
                 except ValueError:
                     pass
-            if extracted.end_date:
+            if extracted.end_date and not tour.source_url:
                 try:
                     tour.end_date = date.fromisoformat(extracted.end_date)
                 except ValueError:

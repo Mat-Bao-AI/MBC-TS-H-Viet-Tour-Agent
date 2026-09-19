@@ -5,7 +5,7 @@
 // từ giờ THẬT (tour.start_date + event.start_time so với hiện tại), thời
 // tiết thật từ Open-Meteo, gửi thông báo từng mốc riêng lẻ qua Zalo.
 import { useMemo, useState } from "react";
-import { api, EventWeather, TimelineEvent } from "@/lib/api";
+import { api, EventWeather, MapPoint, TimelineEvent } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { EventProgramButton } from "@/components/event-program-button";
 
@@ -14,8 +14,29 @@ type Props = {
   startDate: string | null;
   events: TimelineEvent[];
   weather: EventWeather[];
+  mapPoints: MapPoint[];
   zaloConnected: boolean;
 };
+
+function openDirections(destination: string): void {
+  const tab = window.open("about:blank", "_blank");
+  const openMap = (origin?: string) => {
+    const params = new URLSearchParams({ api: "1", destination, travelmode: "driving" });
+    if (origin) params.set("origin", origin);
+    const url = `https://www.google.com/maps/dir/?${params.toString()}`;
+    if (tab && !tab.closed) tab.location.href = url;
+    else window.open(url, "_blank");
+  };
+  if (!navigator.geolocation) {
+    openMap();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => openMap(`${position.coords.latitude},${position.coords.longitude}`),
+    () => openMap(),
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 },
+  );
+}
 
 function eventDateTime(startDate: string, event: TimelineEvent): Date {
   const d = new Date(startDate);
@@ -35,7 +56,7 @@ function composeEventMessage(event: TimelineEvent, weather?: EventWeather): stri
   return msg;
 }
 
-export function TimelineView({ tourId, startDate, events, weather, zaloConnected }: Props) {
+export function TimelineView({ tourId, startDate, events, weather, mapPoints, zaloConnected }: Props) {
   const dayIndexes = useMemo(
     () => Array.from(new Set(events.map((e) => e.day_index))).sort((a, b) => a - b),
     [events]
@@ -101,6 +122,9 @@ export function TimelineView({ tourId, startDate, events, weather, zaloConnected
           const dt = startDate ? eventDateTime(startDate, event) : null;
           const status = dt ? (dt.getTime() < now ? "done" : "upcoming") : null;
           const w = event.location ? weatherByKey.get(`${event.day_index}|${event.location}`) : undefined;
+          const mapPoint = event.location
+            ? mapPoints.find((point) => point.day_index === event.day_index && point.location === event.location)
+            : undefined;
           const isConfirming = confirmingIndex === globalIndex;
           const isSent = sentIndexes.has(globalIndex);
 
@@ -125,7 +149,40 @@ export function TimelineView({ tourId, startDate, events, weather, zaloConnected
                   )}
                 </div>
                 <p className="font-semibold">{event.title}</p>
-                {event.location && <p className="text-xs text-muted-foreground">📍 {event.location}</p>}
+                {event.location && (
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                    <p>📍 {event.location}</p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5">
+                      <span>{mapPoint?.display_name || "Mở bản đồ để xem địa chỉ chi tiết"}</span>
+                      {mapPoint ? (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${mapPoint.latitude},${mapPoint.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          Xem trên bản đồ ↗
+                        </a>
+                      ) : (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          Xem trên bản đồ ↗
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openDirections(mapPoint ? `${mapPoint.latitude},${mapPoint.longitude}` : event.location ?? "")}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Chỉ đường đến đây ↗
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {w && (
                   <p className="text-xs text-muted-foreground">
                     {w.icon} {w.description}, {Math.round(w.temp_min)}–{Math.round(w.temp_max)}°C

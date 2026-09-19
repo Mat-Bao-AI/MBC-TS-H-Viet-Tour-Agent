@@ -2,11 +2,11 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.guest import DispatchStatus
 from app.models.tour import TourStatus, TourType
-from app.schemas.timeline import TimelineEventSchema
+from app.schemas.timeline import MapPoint, TimelineEventSchema
 
 
 class GuestOut(BaseModel):
@@ -80,6 +80,7 @@ class TourListItem(BaseModel):
     # "Đã gửi" = dispatch_status khác pending/failed (sent/read/confirmed) —
     # tiến độ thật tính từ dữ liệu khách trong DB, không phải số bịa.
     guests_sent: int = 0
+    cover_image_url: str | None = None
 
 
 class TourDetail(BaseModel):
@@ -101,9 +102,30 @@ class TourDetail(BaseModel):
     updated_at: datetime
     zalo_group_id: str | None = None
     has_cover_image: bool = False
+    source_url: str | None = None
+    source_title: str | None = None
+    map_points: list[MapPoint] = Field(default_factory=list)
 
 
 class TourCreateResponse(BaseModel):
     id: str
     status: TourStatus
     message: str
+
+
+class UrlValidationRequest(BaseModel):
+    source_url: str
+
+
+class UrlValidationResponse(BaseModel):
+    valid: bool
+    title: str | None = None
+    message: str
+    destinations: list[str] = Field(default_factory=list)
+
+
+class UrlTourCreateRequest(BaseModel):
+    source_url: str
+    start_date: date
+    end_date: date
+    confirm_same_day: bool = False

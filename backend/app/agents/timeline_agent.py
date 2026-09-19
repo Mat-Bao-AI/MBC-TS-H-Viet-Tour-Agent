@@ -23,6 +23,9 @@ liên hệ khi cần) — KHÔNG suy đoán quan hệ kinh doanh/chiến lược
 tài liệu.
 - Mốc đơn giản (ăn uống, di chuyển, nghỉ ngơi, check-in/check-out khách sạn) \
 để `program` = null — đừng tạo program rỗng/hời hợt cho có.
+- Nguồn Brave Search (nếu có) chỉ là thông tin tham khảo bổ sung: không coi \
+là dữ kiện chắc chắn, không bịa giờ mở cửa/giá vé/lịch vận hành và không \
+trích dẫn nó như xác nhận đặt chỗ.
 """
 
 _TYPE_GUIDANCE = {
@@ -67,7 +70,9 @@ tham dự biết cần chuẩn bị gì.
 }
 
 
-async def build_timeline(extracted: ExtractedTourInfo, itinerary_text: str) -> list[TimelineEventSchema]:
+async def build_timeline(
+    extracted: ExtractedTourInfo, itinerary_text: str, web_context: str | None = None
+) -> list[TimelineEventSchema]:
     structured_llm = await get_structured_llm(TimelineResult, temperature=0.3)
 
     system_prompt = _TYPE_GUIDANCE.get(extracted.tour_type, _TYPE_GUIDANCE["tourism"]) + "\n" + _COMMON_RULES
@@ -83,6 +88,8 @@ async def build_timeline(extracted: ExtractedTourInfo, itinerary_text: str) -> l
         f"## Toàn văn tài liệu nguồn (dùng để trích chi tiết chương trình 'program' cho mốc sự kiện chính)\n"
         f"{itinerary_text.strip()}"
     )
+    if web_context:
+        user_content += f"\n\n## Nguồn Brave Search tham khảo (tuỳ chọn)\n{web_context}"
 
     result: TimelineResult = await structured_llm.ainvoke(
         [

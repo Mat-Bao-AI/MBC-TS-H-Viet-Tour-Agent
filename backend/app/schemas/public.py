@@ -9,7 +9,7 @@ from datetime import date
 from pydantic import BaseModel
 
 from app.models.tour import TourType
-from app.schemas.timeline import EventWeather, TimelineEventSchema
+from app.schemas.timeline import EventWeather, MapPoint, TimelineEventSchema
 
 
 class PublicTourView(BaseModel):
@@ -28,3 +28,4 @@ class PublicTourView(BaseModel):
     # HDV chưa upload ảnh bìa. FE tự ghép với API base để ra URL tuyệt đối
     # (bắt buộc cho <meta property="og:image">, xem frontend/src/app/t/[id]/page.tsx).
     cover_image_url: str | None = None
+    map_points: list[MapPoint] = []

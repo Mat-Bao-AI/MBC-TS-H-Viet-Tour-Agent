@@ -63,6 +63,8 @@ services:
     build: ./backend
     container_name: tour_celery_worker
     command: celery -A app.tasks.celery_worker worker --loglevel=info
+    environment:
+      SERVICE_ROLE: worker
     env_file:
       - .env
     depends_on:

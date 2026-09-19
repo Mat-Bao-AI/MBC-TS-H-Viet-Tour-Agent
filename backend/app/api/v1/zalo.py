@@ -72,7 +72,9 @@ async def dispatch(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DispatchResponse:
-    await get_owned_tour(tour_id, db, current_user)
+    tour = await get_owned_tour(tour_id, db, current_user)
+    if tour.status not in (TourStatus.READY_TO_SEND, TourStatus.DISPATCHED):
+        raise HTTPException(status_code=400, detail="Hãy xác nhận lịch trình trước khi gửi thông báo.")
 
     query = select(Guest).where(Guest.tour_id == tour_id)
     if payload.guest_ids:
@@ -102,7 +104,9 @@ async def quick_update(
     """Gửi 1 tin tự do, tức thời cho khách — dùng cho FAB "Cập nhật nhanh"
     (tin tự soạn) và nút "Gửi Zalo" trên từng mốc timeline (tin ghép sẵn từ
     FE). Khác /dispatch: không dùng template lịch trình đầy đủ."""
-    await get_owned_tour(tour_id, db, current_user)
+    tour = await get_owned_tour(tour_id, db, current_user)
+    if tour.status not in (TourStatus.READY_TO_SEND, TourStatus.DISPATCHED):
+        raise HTTPException(status_code=400, detail="Hãy xác nhận lịch trình trước khi gửi thông báo.")
 
     query = select(Guest).where(Guest.tour_id == tour_id)
     if payload.guest_ids:
@@ -213,6 +217,8 @@ async def send_group_message(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     tour = await get_owned_tour(tour_id, db, current_user)
+    if tour.status not in (TourStatus.READY_TO_SEND, TourStatus.DISPATCHED):
+        raise HTTPException(status_code=400, detail="Hãy xác nhận lịch trình trước khi gửi thông báo.")
     if not tour.zalo_group_id:
         raise HTTPException(status_code=400, detail="Tour chưa có nhóm Zalo — tạo nhóm trước khi gửi.")
 
@@ -223,7 +229,7 @@ async def send_group_message(
 
     # Gửi qua nhóm cũng tính là "đã gửi" cho tour — cùng logic tự chuyển
     # trạng thái với dispatch_guest_message (celery_worker.py).
-    if tour.status == TourStatus.REVIEW:
+    if tour.status in (TourStatus.REVIEW, TourStatus.READY_TO_SEND):
         tour.status = TourStatus.DISPATCHED
         await db.commit()
 

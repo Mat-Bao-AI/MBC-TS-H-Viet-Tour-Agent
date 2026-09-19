@@ -3,9 +3,10 @@
 import asyncio
 import tempfile
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import openpyxl
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
@@ -28,7 +29,7 @@ from app.models.user import User, UserRole
 from app.schemas.extraction import ExtractedGuest
 from app.schemas.room_assignment import AssignedGroupOut, AutoAssignRoomsResponse, UnassignedGroupOut
 from app.schemas.room_type import RoomTypeCreateRequest, RoomTypeOut, RoomTypeUpdateRequest
-from app.schemas.timeline import EventWeather, TimelineEventSchema, TimelineUpdateRequest
+from app.schemas.timeline import EventWeather, MapPoint, TimelineEventSchema, TimelineUpdateRequest
 from app.services import weather_service
 from app.services.room_assignment import assign_rooms
 from app.schemas.tour import (
@@ -40,6 +41,9 @@ from app.schemas.tour import (
     TourCreateResponse,
     TourDetail,
     TourListItem,
+    UrlTourCreateRequest,
+    UrlValidationRequest,
+    UrlValidationResponse,
 )
 
 router = APIRouter(prefix="/tours", tags=["tours"])
@@ -55,6 +59,57 @@ _CHUNK_SIZE = 1024 * 1024  # 1MB
 # lạm dụng khi cho phép nhiều file cùng lúc.
 _MAX_ITINERARY_FILES = 5
 _MAX_ITINERARY_FILE_SIZE_MB = 10
+
+
+def _validate_url_tour_dates(start_date: date, end_date: date, confirm_same_day: bool) -> None:
+    today = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+    if start_date < today:
+        raise HTTPException(status_code=400, detail="Ngày đi không thể trước hôm nay.")
+    if end_date < start_date:
+        raise HTTPException(status_code=400, detail="Ngày về không thể trước ngày đi.")
+    if end_date == start_date and not confirm_same_day:
+        raise HTTPException(
+            status_code=409,
+            detail="Đây là chuyến đi trong ngày. Xác nhận để tiếp tục tạo lịch trình phù hợp.",
+        )
+
+
+async def _validate_web_source(source_url: str):
+    from app.agents.parser_agent import assess_travel_url
+    from app.services.web_source import WebSourceError, fetch_public_web_source
+
+    try:
+        source = await fetch_public_web_source(source_url)
+        relevance = await assess_travel_url(source.text)
+    except WebSourceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # LLM/provider errors must not create an unvalidated tour
+        raise HTTPException(status_code=502, detail=f"Không thể đánh giá nội dung URL: {exc}") from exc
+    return source, relevance
+
+
+async def _prepare_web_cover(source, destinations: list[str], tour_id: str) -> str | None:
+    """Prefer source og:image, then optional Brave Image Search candidates."""
+    from app.services.web_source import download_public_image
+
+    candidates: list[str] = []
+    if source.image_url:
+        candidates.append(source.image_url)
+    if not candidates:
+        from app.services.brave_search import find_travel_image_urls
+
+        candidates.extend(await find_travel_image_urls(" ".join(destinations[:3]) or source.title or "Vietnam travel"))
+
+    for image_url in candidates[:10]:
+        downloaded = await download_public_image(image_url)
+        if downloaded:
+            content, extension = downloaded
+            upload_dir = Path(settings.upload_dir)
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            path = upload_dir / f"{tour_id}_web_cover_{uuid.uuid4().hex[:8]}{extension}"
+            path.write_bytes(content)
+            return str(path)
+    return None
 
 
 def _save_upload(file: UploadFile, tour_id: str, max_size_mb: int | None = None) -> tuple[str, str]:
@@ -181,6 +236,54 @@ async def create_tour(
     return TourCreateResponse(id=tour.id, status=tour.status, message="Đã nhận tài liệu, đang phân tích...")
 
 
+@router.post("/validate-url", response_model=UrlValidationResponse)
+async def validate_url_tour_source(
+    payload: UrlValidationRequest, current_user: User = Depends(get_current_user)
+) -> UrlValidationResponse:
+    """Read and classify a URL without persisting a draft tour."""
+    source, relevance = await _validate_web_source(payload.source_url)
+    return UrlValidationResponse(
+        valid=relevance.is_travel_related,
+        title=source.title,
+        message=relevance.reason,
+        destinations=relevance.destinations,
+    )
+
+
+@router.post("/from-url", response_model=TourCreateResponse)
+async def create_tour_from_url(
+    payload: UrlTourCreateRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TourCreateResponse:
+    _validate_url_tour_dates(payload.start_date, payload.end_date, payload.confirm_same_day)
+    source, relevance = await _validate_web_source(payload.source_url)
+    if not relevance.is_travel_related:
+        raise HTTPException(status_code=422, detail=relevance.reason)
+
+    tour = Tour(
+        name=source.title or "Tour từ nguồn web",
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        source_url=source.url,
+        source_title=source.title,
+        source_content=source.text,
+        status=TourStatus.DRAFT,
+        owner_id=current_user.id,
+    )
+    db.add(tour)
+    await db.flush()
+    tour.cover_image_path = await _prepare_web_cover(source, relevance.destinations, tour.id)
+    await db.commit()
+    await db.refresh(tour)
+
+    from app.api.v1.agent import process_tour
+
+    background_tasks.add_task(process_tour, tour.id)
+    return TourCreateResponse(id=tour.id, status=tour.status, message="Đã nhận URL, đang tạo lịch trình nháp...")
+
+
 def tour_to_list_item(tour: Tour) -> TourListItem:
     """Tour ORM (đã eager-load guests) -> TourListItem kèm tiến độ gửi Zalo
     thật, tính trực tiếp từ Guest.dispatch_status — dùng chung cho
@@ -198,6 +301,7 @@ def tour_to_list_item(tour: Tour) -> TourListItem:
         created_at=tour.created_at,
         guests_total=len(tour.guests),
         guests_sent=guests_sent,
+        cover_image_url=f"/api/v1/public/tours/{tour.id}/cover" if tour.cover_image_path else None,
     )
 
 
@@ -261,6 +365,7 @@ async def get_tour(
     tour_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ) -> TourDetail:
     tour = await _get_tour_or_404(tour_id, db, current_user)
+    map_points = await compute_tour_map_points(tour)
     return TourDetail(
         id=tour.id,
         name=tour.name,
@@ -278,6 +383,9 @@ async def get_tour(
         updated_at=tour.updated_at,
         zalo_group_id=tour.zalo_group_id,
         has_cover_image=bool(tour.cover_image_path),
+        source_url=tour.source_url,
+        source_title=tour.source_title,
+        map_points=map_points,
     )
 
 
@@ -361,8 +469,46 @@ async def update_timeline(
     else:
         tour.timeline.events = events_json
 
+    # Sửa sau khi đã xác nhận thì phải quay lại bước kiểm tra trước khi gửi.
+    if tour.status == TourStatus.READY_TO_SEND:
+        tour.status = TourStatus.REVIEW
+
     await db.commit()
 
+    return await get_tour(tour_id, db, current_user)
+
+
+@router.post("/{tour_id}/confirm", response_model=TourDetail)
+async def confirm_tour_timeline(
+    tour_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TourDetail:
+    """HDV xác nhận nội dung cuối sau khi kiểm tra timeline."""
+    tour = await _get_tour_or_404(tour_id, db, current_user)
+    if tour.status != TourStatus.REVIEW:
+        raise HTTPException(status_code=400, detail="Tour chưa ở trạng thái cần kiểm tra.")
+    if tour.timeline is None or not tour.timeline.events:
+        raise HTTPException(status_code=400, detail="Tour chưa có lịch trình để xác nhận.")
+
+    tour.status = TourStatus.READY_TO_SEND
+    await db.commit()
+    return await get_tour(tour_id, db, current_user)
+
+
+@router.post("/{tour_id}/reopen", response_model=TourDetail)
+async def reopen_tour_timeline(
+    tour_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TourDetail:
+    """HDV mở lại tour đã xác nhận để chỉnh sửa trước khi gửi."""
+    tour = await _get_tour_or_404(tour_id, db, current_user)
+    if tour.status != TourStatus.READY_TO_SEND:
+        raise HTTPException(status_code=400, detail="Tour chưa ở trạng thái sẵn sàng gửi.")
+
+    tour.status = TourStatus.REVIEW
+    await db.commit()
     return await get_tour(tour_id, db, current_user)
 
 
@@ -437,6 +583,30 @@ async def compute_tour_weather(tour: Tour) -> list[EventWeather]:
     # Gọi song song cho mọi ngày thay vì tuần tự.
     fetched = await asyncio.gather(*(_fetch_day(d) for d in day_indexes))
     return [w for w in fetched if w is not None]
+
+
+async def compute_tour_map_points(tour: Tour) -> list[MapPoint]:
+    """Geocode các location thực tế trong timeline, best-effort."""
+    if tour.timeline is None:
+        return []
+    events = [TimelineEventSchema(**e) for e in tour.timeline.events]
+    unique = list(dict.fromkeys(e.location for e in events if e.location))
+    results = await asyncio.gather(*(weather_service.geocode(location) for location in unique))
+    coordinates = {name: result for name, result in zip(unique, results) if result is not None}
+    points: list[MapPoint] = []
+    for event in events:
+        if not event.location or event.location not in coordinates:
+            continue
+        latitude, longitude, display_name = coordinates[event.location]
+        points.append(MapPoint(
+            day_index=event.day_index,
+            title=event.title,
+            location=event.location,
+            latitude=latitude,
+            longitude=longitude,
+            display_name=display_name,
+        ))
+    return points
 
 
 @router.get("/{tour_id}/weather", response_model=list[EventWeather])
@@ -584,8 +754,8 @@ async def reprocess_tour(
 ) -> TourCreateResponse:
     """Chạy lại agent parse+timeline — dùng khi lần xử lý trước lỗi (status=failed)."""
     tour = await _get_tour_or_404(tour_id, db, current_user)
-    if not tour.source_files:
-        raise HTTPException(status_code=400, detail="Tour chưa có tài liệu gốc để xử lý lại")
+    if not tour.source_files and not tour.source_content:
+        raise HTTPException(status_code=400, detail="Tour chưa có nguồn gốc để xử lý lại")
 
     from app.api.v1.agent import process_tour
 

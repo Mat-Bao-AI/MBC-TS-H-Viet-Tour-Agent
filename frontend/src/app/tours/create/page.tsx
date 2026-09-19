@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BackIcon } from "@/components/navigation-icons";
 
 const MAX_ITINERARY_FILES = 5;
 const MAX_ITINERARY_FILE_SIZE_MB = 10;
@@ -171,6 +172,13 @@ function MultiDropzone({
 export default function CreateTourPage() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [sourceMode, setSourceMode] = useState<"file" | "url">("file");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [urlValidated, setUrlValidated] = useState(false);
+  const [urlMessage, setUrlMessage] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [confirmSameDay, setConfirmSameDay] = useState(false);
   const [itineraryFiles, setItineraryFiles] = useState<File[]>([]);
   const [guestListFile, setGuestListFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -190,26 +198,57 @@ export default function CreateTourPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (itineraryFiles.length === 0) {
+    if (sourceMode === "file" && itineraryFiles.length === 0) {
       setError("Cần chọn ít nhất 1 tài liệu lịch trình (PDF/DOCX/XLSX/TXT).");
       return;
     }
-    if (itineraryFiles.some((f) => f.size > MAX_ITINERARY_FILE_SIZE_MB * 1024 * 1024)) {
+    if (sourceMode === "file" && itineraryFiles.some((f) => f.size > MAX_ITINERARY_FILE_SIZE_MB * 1024 * 1024)) {
       setError(`Có file vượt quá ${MAX_ITINERARY_FILE_SIZE_MB}MB — vui lòng bỏ bớt trước khi gửi.`);
+      return;
+    }
+    if (sourceMode === "url" && (!urlValidated || !startDate || !endDate)) {
+      setError("Hãy kiểm tra URL hợp lệ và nhập đủ ngày đi/ngày về.");
+      return;
+    }
+    if (sourceMode === "url" && startDate === endDate && !confirmSameDay) {
+      setError("Chuyến đi trong ngày cần được xác nhận trước khi tạo lịch trình.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const formData = new FormData();
-      if (name) formData.append("name", name);
-      for (const f of itineraryFiles) formData.append("itinerary_files", f);
-      if (guestListFile) formData.append("guest_list_file", guestListFile);
-
-      const result = await api.createTour(formData);
+      const result = sourceMode === "url"
+        ? await api.createTourFromUrl({ source_url: sourceUrl, start_date: startDate, end_date: endDate, confirm_same_day: confirmSameDay })
+        : await (() => {
+            const formData = new FormData();
+            if (name) formData.append("name", name);
+            for (const f of itineraryFiles) formData.append("itinerary_files", f);
+            if (guestListFile) formData.append("guest_list_file", guestListFile);
+            return api.createTour(formData);
+          })();
       router.push(`/tours/${result.id}/review`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setSubmitting(false);
+    }
+  }
+
+  async function validateUrl() {
+    if (!sourceUrl.trim()) return setError("Nhập URL trước khi kiểm tra.");
+    setSubmitting(true);
+    setError(null);
+    setUrlMessage(null);
+    try {
+      const result = await api.validateTourUrl(sourceUrl.trim());
+      setUrlValidated(result.valid);
+      setUrlMessage(result.valid
+        ? `Đã đọc ${result.title ? `“${result.title}”` : "nguồn URL"}${result.destinations.length ? ` · Nhận diện: ${result.destinations.join(", ")}` : ""}.`
+        : result.message);
+      if (!result.valid) setError(result.message);
+    } catch (err) {
+      setUrlValidated(false);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
       setSubmitting(false);
     }
   }
@@ -218,12 +257,24 @@ export default function CreateTourPage() {
     <div className="flex flex-col gap-5 pt-2">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <h1 className="text-lg font-bold">Tạo Tour mới</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 rounded-lg border border-border p-1 text-sm">
+          <button type="button" onClick={() => setSourceMode("file")} className={`rounded-md py-2 ${sourceMode === "file" ? "bg-primary text-primary-foreground" : ""}`}>Tải tài liệu</button>
+          <button type="button" onClick={() => setSourceMode("url")} className={`rounded-md py-2 ${sourceMode === "url" ? "bg-primary text-primary-foreground" : ""}`}>Từ URL</button>
+        </div>
+
+        {sourceMode === "url" ? (
+          <>
+            <div className="flex flex-col gap-1"><label className="text-sm font-medium">URL thông tin chuyến đi</label><div className="flex gap-2"><Input value={sourceUrl} onChange={(e) => { setSourceUrl(e.target.value); setUrlValidated(false); setUrlMessage(null); }} placeholder="https://..." /><Button type="button" variant="outline" onClick={validateUrl} disabled={submitting}>Kiểm tra URL</Button></div><p className="text-xs text-muted-foreground">Nhận trang HTML hoặc PDF công khai: điểm đến, tour tham khảo, lưu trú, điểm tham quan hoặc agenda du lịch. Chưa hỗ trợ link đăng nhập, mạng xã hội, Google Maps hay file riêng tư.</p>{urlMessage && <p className={`text-xs ${urlValidated ? "text-success" : "text-destructive"}`}>{urlMessage}</p>}</div>
+            {urlValidated && <div className="grid grid-cols-2 gap-3"><label className="flex flex-col gap-1 text-sm font-medium">Ngày đi<Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setConfirmSameDay(false); }} /></label><label className="flex flex-col gap-1 text-sm font-medium">Ngày về<Input type="date" value={endDate} min={startDate || undefined} onChange={(e) => { setEndDate(e.target.value); setConfirmSameDay(false); }} /></label></div>}
+            {urlValidated && startDate && endDate && startDate === endDate && <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={confirmSameDay} onChange={(e) => setConfirmSameDay(e.target.checked)} /> Tôi xác nhận đây là chuyến đi trong ngày.</label>}
+          </>
+        ) : <>
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium">Tên tour (không bắt buộc)</label>
           <Input
@@ -249,17 +300,27 @@ export default function CreateTourPage() {
           file={guestListFile}
           onChange={setGuestListFile}
         />
+        </>}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" disabled={submitting} size="lg" className="w-full">
+        <Button
+          type="submit"
+          disabled={
+            submitting ||
+            (sourceMode === "url" &&
+              (!urlValidated || !startDate || !endDate || (startDate === endDate && !confirmSameDay)))
+          }
+          size="lg"
+          className="w-full"
+        >
           {submitting ? (
             <span className="flex items-center gap-2">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              Agent đang phân tích tài liệu...
+              Agent đang tạo lịch trình...
             </span>
           ) : (
-            "✨ Agent AI phân tích & tạo lịch trình"
+            sourceMode === "url" ? "✨ Tạo lịch trình nháp từ URL" : "✨ Agent AI phân tích & tạo lịch trình"
           )}
         </Button>
       </form>

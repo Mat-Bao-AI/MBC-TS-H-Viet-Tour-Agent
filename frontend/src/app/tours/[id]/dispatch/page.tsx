@@ -10,6 +10,7 @@ import { CopyPublicLinkButton } from "@/components/copy-public-link-button";
 import { ZaloPreview } from "@/components/zalo-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackIcon } from "@/components/navigation-icons";
 
 export default function DispatchTourPage() {
   const params = useParams<{ id: string }>();
@@ -101,12 +102,13 @@ export default function DispatchTourPage() {
 
   const isLoggedIn = loginStatus?.status === "success";
   const pendingIds = guests?.filter((g) => g.dispatch_status === "pending").map((g) => g.id) ?? [];
+  const canSend = tour?.status === "ready_to_send" || tour?.status === "dispatched";
 
   return (
     <div className="flex flex-col gap-4 pt-2">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <div>
           <h1 className="text-xl font-bold">Đoàn khách: {tour?.name ?? "..."}</h1>
@@ -142,6 +144,11 @@ export default function DispatchTourPage() {
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {tour && !canSend && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Hãy kiểm tra và xác nhận lịch trình trước khi gửi thông báo cho khách.
+        </p>
+      )}
       {result && (
         <p className="text-sm text-success">
           Đã xếp hàng gửi {result.queued} tin — đang cập nhật trạng thái thật bên dưới (vài giây)...
@@ -152,12 +159,12 @@ export default function DispatchTourPage() {
       <div className="flex flex-col gap-2">
         <Button
           variant="outline"
-          disabled={dispatching || !isLoggedIn || pendingIds.length === 0}
+          disabled={dispatching || !isLoggedIn || !canSend || pendingIds.length === 0}
           onClick={() => handleDispatch(pendingIds)}
         >
           📩 Gửi riêng khách chưa xem ({pendingIds.length})
         </Button>
-        <Button disabled={dispatching || !isLoggedIn || !guests?.length} onClick={() => handleDispatch()}>
+        <Button disabled={dispatching || !isLoggedIn || !canSend || !guests?.length} onClick={() => handleDispatch()}>
           {dispatching ? "Đang gửi..." : "▶ Gửi thông báo toàn đoàn"}
         </Button>
       </div>

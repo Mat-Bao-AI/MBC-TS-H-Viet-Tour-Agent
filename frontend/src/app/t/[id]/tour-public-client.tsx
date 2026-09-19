@@ -70,6 +70,30 @@ function formatShortVi(iso: string): string {
   return `${d}/${m}`;
 }
 
+function mapPointFor(tour: PublicTourView, event: PublicTourView["timeline_events"][number]) {
+  return tour.map_points?.find((point) => point.day_index === event.day_index && point.location === event.location);
+}
+
+function openDirections(destination: string): void {
+  const tab = window.open("about:blank", "_blank");
+  const openMap = (origin?: string) => {
+    const params = new URLSearchParams({ api: "1", destination, travelmode: "driving" });
+    if (origin) params.set("origin", origin);
+    const url = `https://www.google.com/maps/dir/?${params.toString()}`;
+    if (tab && !tab.closed) tab.location.href = url;
+    else window.open(url, "_blank");
+  };
+  if (!navigator.geolocation) {
+    openMap();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => openMap(`${position.coords.latitude},${position.coords.longitude}`),
+    () => openMap(),
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 },
+  );
+}
+
 // Fallback khi ngày đó chưa có weather (vd tour chưa xác định địa điểm nào
 // geocode được) — suy ra ngày dương lịch từ start_date + day_index, KHÔNG
 // bịa nhiệt độ, chỉ dùng để hiển thị nhãn ngày trên tab.
@@ -223,9 +247,40 @@ export function TourPublicClient({ tourId }: { tourId: string }) {
                       <h4 className="text-lg font-bold text-gray-900">{e.title}</h4>
                     </div>
                     {e.location && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span className="material-symbols-outlined text-base">location_on</span>
-                        <span>{e.location}</span>
+                      <div className="flex flex-col gap-1 text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base">location_on</span>
+                          <span>{e.location}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pl-6 text-xs">
+                          <span>{mapPointFor(tour, e)?.display_name || "Mở bản đồ để xem địa chỉ chi tiết"}</span>
+                          {mapPointFor(tour, e) ? (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${mapPointFor(tour, e)!.latitude},${mapPointFor(tour, e)!.longitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-[#1a6b4e] hover:underline"
+                            >
+                              Xem trên bản đồ ↗
+                            </a>
+                          ) : (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-[#1a6b4e] hover:underline"
+                            >
+                              Xem trên bản đồ ↗
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openDirections(mapPointFor(tour, e) ? `${mapPointFor(tour, e)!.latitude},${mapPointFor(tour, e)!.longitude}` : e.location ?? "")}
+                            className="font-semibold text-[#1a6b4e] hover:underline"
+                          >
+                            Chỉ đường đến đây ↗
+                          </button>
+                        </div>
                       </div>
                     )}
                     {e.notes && (
@@ -359,12 +414,14 @@ function PageShell({
       </header>
 
       {tour?.cover_image_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`${API_BASE}${tour.cover_image_url}`}
-          alt=""
-          className="h-48 w-full object-cover md:h-64"
-        />
+        <div className="mx-auto max-w-3xl px-4 pt-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`${API_BASE}${tour.cover_image_url}`}
+            alt=""
+            className="h-48 w-full rounded-xl border border-[#e5e5e5] object-cover shadow-sm md:h-64"
+          />
+        </div>
       )}
 
       <main className="mx-auto max-w-3xl px-4 py-6 pb-24 md:pb-8">{children}</main>

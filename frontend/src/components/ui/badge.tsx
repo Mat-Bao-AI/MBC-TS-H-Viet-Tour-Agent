@@ -2,7 +2,7 @@ import { HTMLAttributes } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", {
+const badgeVariants = cva("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium", {
   variants: {
     variant: {
       default: "bg-muted text-muted-foreground",
@@ -24,7 +24,8 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 const TOUR_STATUS_LABEL: Record<string, { label: string; variant: BadgeProps["variant"] }> = {
   draft: { label: "Nháp", variant: "default" },
   parsing: { label: "Đang phân tích...", variant: "warning" },
-  review: { label: "Chờ duyệt", variant: "primary" },
+  review: { label: "Cần kiểm tra", variant: "primary" },
+  ready_to_send: { label: "Sẵn sàng gửi", variant: "success" },
   dispatched: { label: "Đã gửi", variant: "success" },
   failed: { label: "Lỗi", variant: "destructive" },
   pending: { label: "Chưa gửi", variant: "default" },

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackIcon, CompassIcon } from "@/components/navigation-icons";
 
 // Khớp version trong backend/app/main.py + frontend/package.json — cập nhật
 // thủ công cả 3 chỗ khi bump version (chưa có cơ chế đọc version tự động
@@ -90,13 +91,13 @@ export default function AboutPage() {
     <div className="flex flex-col gap-5 pt-2 pb-10">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <h1 className="text-xl font-bold">Về ứng dụng</h1>
       </div>
 
       <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-6 text-center">
-        <span className="text-3xl">🧭</span>
+        <CompassIcon />
         <p className="text-lg font-bold text-primary">{companyName}</p>
         <p className="text-sm text-muted-foreground">
           Agent AI hỗ trợ hướng dẫn viên du lịch soạn lịch trình và gửi thông báo cho khách qua Zalo.

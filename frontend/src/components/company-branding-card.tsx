@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, API_BASE, CompanyInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CompassIcon } from "@/components/navigation-icons";
 
 export function CompanyBrandingCard() {
   const [info, setInfo] = useState<CompanyInfo | null>(null);
@@ -98,7 +99,7 @@ export function CompanyBrandingCard() {
           />
         ) : (
           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-border text-2xl">
-            🧭
+            <CompassIcon />
           </div>
         )}
         <div className="flex gap-2">

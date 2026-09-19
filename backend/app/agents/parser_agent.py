@@ -5,7 +5,7 @@ Output: ExtractedTourInfo — tên tour, ngày, điểm đến, danh sách khác
 """
 
 from app.core.llm import get_structured_llm
-from app.schemas.extraction import ExtractedGuest, ExtractedGuestList, ExtractedTourInfo
+from app.schemas.extraction import ExtractedGuest, ExtractedGuestList, ExtractedTourInfo, UrlTravelRelevance
 
 _SYSTEM_PROMPT = """\
 Bạn là trợ lý AI xử lý tài liệu lịch trình/briefing tiếng Việt — dùng cho cả \
@@ -83,3 +83,16 @@ async def extract_guest_list(text: str) -> list[ExtractedGuest]:
         ]
     )
     return result.guests
+
+
+_URL_RELEVANCE_PROMPT = """Bạn đánh giá nội dung một URL công khai trước khi cho phép tạo lịch trình tour.
+Chỉ trả is_travel_related=true nếu nội dung có thông tin hữu ích về điểm đến, lịch trình du lịch,
+tham quan, lưu trú, di chuyển, trải nghiệm hoặc sự kiện du lịch. Tin tức chung, nội dung bán hàng
+không liên quan, trang đăng nhập và nội dung quá chung chung phải là false. Không bịa địa điểm."""
+
+
+async def assess_travel_url(source_text: str) -> UrlTravelRelevance:
+    structured_llm = await get_structured_llm(UrlTravelRelevance, temperature=0)
+    return await structured_llm.ainvoke(
+        [("system", _URL_RELEVANCE_PROMPT), ("human", source_text[:30_000])]
+    )

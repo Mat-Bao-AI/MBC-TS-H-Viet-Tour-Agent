@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,6 +14,7 @@ class TourStatus(str, enum.Enum):
     DRAFT = "draft"  # vừa upload, chưa parse
     PARSING = "parsing"  # agent đang trích xuất/sinh timeline
     REVIEW = "review"  # HDV đang xem/sửa
+    READY_TO_SEND = "ready_to_send"  # HDV đã xác nhận nội dung cuối
     DISPATCHED = "dispatched"  # đã gửi Zalo cho khách
     FAILED = "failed"  # agent xử lý lỗi (file hỏng, Gemini lỗi...) — HDV có thể bấm xử lý lại
 
@@ -60,6 +61,11 @@ class Tour(Base):
     # Tóm tắt ngắn (2-3 câu) giúp người đọc chuẩn bị — AI rút từ tài liệu
     # nguồn, KHÔNG bịa nếu tài liệu không đủ ý (xem parser_agent.py).
     summary: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # Nguồn web của tour tạo từ URL. Lưu snapshot text đã đọc tại thời điểm
+    # tạo tour để xử lý lại không phụ thuộc trang gốc sau này thay đổi/mất.
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    source_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    source_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Multi-tenant theo HDV — nullable vì tour tạo TRƯỚC khi có hệ thống auth
     # (không có chủ) vẫn phải đọc/hiển thị được; seed_admin_if_configured()
     # (app/core/seed.py) backfill các tour này về Admin đầu tiên lúc khởi

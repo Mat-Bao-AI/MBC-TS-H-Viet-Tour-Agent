@@ -79,9 +79,8 @@ def dispatch_guest_message(guest_id: str) -> dict:
         guest.dispatch_error = None
         guest.last_dispatched_at = datetime.utcnow()
         # Lần gửi thành công ĐẦU TIÊN của tour — trước đây KHÔNG có chỗ nào
-        # set TourStatus.DISPATCHED, tour kẹt vĩnh viễn ở "Chờ duyệt" (review)
-        # dù đã gửi hết cho khách (bug thật, không phải HDV thao tác sai).
-        if tour.status == TourStatus.REVIEW:
+        # Chuyển sang đã gửi sau khi tin đầu tiên gửi thành công.
+        if tour.status in (TourStatus.REVIEW, TourStatus.READY_TO_SEND):
             tour.status = TourStatus.DISPATCHED
         session.commit()
 
@@ -124,7 +123,7 @@ def dispatch_quick_update_message(guest_id: str, message_text: str) -> dict:
         # Cập nhật nhanh cũng có thể là lần gửi ĐẦU TIÊN của tour (HDV gửi tin
         # khẩn trước khi bấm "Gửi thông báo toàn đoàn") — cùng logic tự chuyển
         # trạng thái như dispatch_guest_message ở trên.
-        if tour is not None and tour.status == TourStatus.REVIEW:
+        if tour is not None and tour.status in (TourStatus.REVIEW, TourStatus.READY_TO_SEND):
             tour.status = TourStatus.DISPATCHED
         session.commit()
 

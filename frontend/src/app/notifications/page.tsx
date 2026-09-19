@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, DashboardActivity } from "@/lib/api";
 import { ActivityTimeline } from "@/components/activity-timeline";
+import { BackIcon } from "@/components/navigation-icons";
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function NotificationsPage() {
     <div className="flex flex-col gap-5 pt-2">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <h1 className="text-xl font-bold">Thông báo</h1>
       </div>

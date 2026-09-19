@@ -17,6 +17,7 @@ cờ is_forecast để FE phân biệt rõ 2 loại, không để lẫn lộn.
 """
 
 import asyncio
+import re
 from collections import Counter
 from datetime import date as date_cls, timedelta
 
@@ -63,20 +64,34 @@ async def geocode(location_name: str) -> tuple[float, float, str] | None:
     (1 địa điểm lỗi không được kéo sập toàn bộ danh sách weather của trang).
     Tên chuẩn hoá (vd "Đà Lạt" thay vì tên nhà hàng/khách sạn cụ thể không
     geocode được) dùng để hiển thị — xem compute_tour_weather()."""
+    # AI thường trả location có tiền tố/chú thích mà geocoder không nhận ra
+    # (vd. "TP. Vũng Tàu", "Khu du lịch Hồ Mây"). Thử chuỗi gốc trước,
+    # sau đó thử các biến thể an toàn hơn, không bịa địa điểm mới.
+    queries = [location_name]
+    simplified = re.sub(r"\([^)]*\)", "", location_name)
+    simplified = re.sub(r"^(TP\.?|Thành phố|Khu du lịch|Khu vực|Khách sạn tại)\s+", "", simplified, flags=re.I)
+    simplified = re.sub(r"\s+", " ", simplified).strip(" ,.-")
+    if simplified and simplified not in queries:
+        queries.append(simplified)
+    if " - " in location_name:
+        destination = location_name.split(" - ", 1)[0].strip()
+        if destination and destination not in queries:
+            queries.append(destination)
+
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(
-                _GEOCODE_URL, params={"name": location_name, "count": 1, "language": "vi"}
-            )
-            response.raise_for_status()
-            results = response.json().get("results") or []
+            for query in queries:
+                response = await client.get(
+                    _GEOCODE_URL, params={"name": query, "count": 1, "language": "vi"}
+                )
+                response.raise_for_status()
+                results = response.json().get("results") or []
+                if results:
+                    result = results[0]
+                    return result["latitude"], result["longitude"], result.get("name", location_name)
     except httpx.HTTPError:
         return None
-
-    if not results:
-        return None
-    result = results[0]
-    return result["latitude"], result["longitude"], result.get("name", location_name)
+    return None
 
 
 async def get_forecast(latitude: float, longitude: float, date: str) -> dict | None:

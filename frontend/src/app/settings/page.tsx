@@ -11,6 +11,9 @@ import { api, ZaloLoginStatus } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useCompanyName } from "@/lib/use-company-name";
+import { ZaloConnectionNotice } from "@/components/zalo-connection-notice";
+import { UserAvatar } from "@/components/user-avatar";
+import { SettingsMenuIcon } from "@/components/settings-menu-icon";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -19,6 +22,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showZaloNotice, setShowZaloNotice] = useState(false);
 
   async function load() {
     try {
@@ -66,7 +70,12 @@ export default function SettingsPage() {
       {/* Hồ sơ — tài khoản app đang đăng nhập thật (JWT, xem lib/auth.tsx) */}
       {user && (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-xl">🧑‍💼</div>
+          <UserAvatar
+            userId={user.id}
+            fullName={user.full_name}
+            hasAvatar={user.has_avatar}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary object-cover"
+          />
           <div>
             <p className="font-semibold">{user.full_name}</p>
             <p className="text-xs text-muted-foreground">
@@ -97,9 +106,7 @@ export default function SettingsPage() {
               <span className="flex items-center gap-1.5 text-sm text-destructive">
                 <span className="h-2 w-2 rounded-full bg-destructive" /> Mất kết nối
               </span>
-              <Link href="/login?next=/settings">
-                <Button size="sm">Kết nối lại qua QR</Button>
-              </Link>
+              <Button size="sm" onClick={() => setShowZaloNotice(true)}>Kết nối lại qua QR</Button>
             </div>
             {status?.error && (
               // Lỗi thật đến từ zca-js (thư viện Zalo không chính thức) —
@@ -119,7 +126,7 @@ export default function SettingsPage() {
       <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
         <Link href="/settings/profile" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
           <span className="flex items-center gap-3">
-            <span>🧑‍💼</span>
+            <SettingsMenuIcon name="profile" />
             Hồ sơ cá nhân
           </span>
           <span className="text-muted-foreground">›</span>
@@ -130,7 +137,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
           >
             <span className="flex items-center gap-3">
-              <span>🔒</span>
+              <SettingsMenuIcon name="system" />
               Cài đặt hệ thống
             </span>
             <span className="flex items-center gap-1.5">
@@ -143,14 +150,14 @@ export default function SettingsPage() {
         )}
         <Link href="/notifications" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
           <span className="flex items-center gap-3">
-            <span>🔔</span>
+            <SettingsMenuIcon name="notifications" />
             Thông báo
           </span>
           <span className="text-muted-foreground">›</span>
         </Link>
         <Link href="/help" className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted">
           <span className="flex items-center gap-3">
-            <span>❓</span>
+            <SettingsMenuIcon name="help" />
             Trợ giúp
           </span>
           <span className="text-muted-foreground">›</span>
@@ -160,7 +167,7 @@ export default function SettingsPage() {
           className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
         >
           <span className="flex items-center gap-3">
-            <span>ℹ️</span>
+            <SettingsMenuIcon name="about" />
             Về ứng dụng
           </span>
           <span className="text-muted-foreground">›</span>
@@ -175,6 +182,14 @@ export default function SettingsPage() {
       >
         Ngắt kết nối Zalo
       </Button>
+      <ZaloConnectionNotice
+        open={showZaloNotice}
+        onCancel={() => setShowZaloNotice(false)}
+        onConfirm={() => {
+          setShowZaloNotice(false);
+          window.location.href = "/login?next=/settings&consent=zalo";
+        }}
+      />
     </div>
   );
 }

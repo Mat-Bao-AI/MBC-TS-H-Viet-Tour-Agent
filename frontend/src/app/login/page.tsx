@@ -10,6 +10,8 @@ import Image from "next/image";
 import { api, ZaloLoginStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useCompanyName } from "@/lib/use-company-name";
+import { ZaloConnectionNotice } from "@/components/zalo-connection-notice";
+import { BackIcon } from "@/components/navigation-icons";
 
 const STEPS = ["Mở Zalo trên điện thoại", "Vào phần Quét QR", "Quét mã trên màn hình này"];
 
@@ -28,10 +30,12 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/settings";
+  const hasConnectionConsent = searchParams.get("consent") === "zalo";
   const companyName = useCompanyName();
 
   const [status, setStatus] = useState<ZaloLoginStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showNotice, setShowNotice] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -69,22 +73,32 @@ function LoginPageInner() {
       .then((s) => {
         if (s.status === "success") {
           router.replace(nextPath);
-        } else {
+        } else if (hasConnectionConsent) {
+          // Người dùng đã xác nhận cảnh báo ở màn hình Cài đặt; mở QR ngay,
+          // không hiển thị lại popup lần thứ hai.
           startLogin();
+        } else {
+          setShowNotice(true);
         }
       })
-      .catch(() => startLogin());
+      .catch(() => {
+        if (hasConnectionConsent) {
+          startLogin();
+        } else {
+          setShowNotice(true);
+        }
+      });
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasConnectionConsent]);
 
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex items-center gap-3">
         <button onClick={() => router.back()} aria-label="Quay lại" className="text-lg">
-          ←
+          <BackIcon />
         </button>
         <span className="font-semibold text-primary">{companyName}</span>
       </div>
@@ -133,6 +147,11 @@ function LoginPageInner() {
       <Button variant="outline" onClick={startLogin} disabled={status?.status === "qr_pending"}>
         ↻ Làm mới mã QR
       </Button>
+      <ZaloConnectionNotice
+        open={showNotice}
+        onCancel={() => router.back()}
+        onConfirm={() => { setShowNotice(false); startLogin(); }}
+      />
     </div>
   );
 }

@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     azure_openai_model: str = ""
     azure_openai_api_version: str = "2024-12-01-preview"
 
+    # Tìm kiếm web bổ sung cho luồng tạo tour từ URL. Key được ưu tiên lấy từ
+    # cấu hình Admin đã mã hoá trong DB; biến này là fallback cho vận hành cũ.
+    brave_search_api_key: str = ""
+
+    # Nhà cung cấp bản đồ Việt Nam. Giá trị UI/DB được ưu tiên qua
+    # dynamic_config; biến này giữ vai trò fallback cho vận hành cũ.
+    vietmap_api_key: str = ""
+
     # Provider thử trước khi có ≥2 provider cùng cấu hình ("gemini" | "azure_openai")
     llm_primary_provider: str = "gemini"
 

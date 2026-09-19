@@ -215,7 +215,6 @@ export type AIProviderStatus = {
 export type SystemSettings = {
   ai_providers: AIProviderStatus[];
   brave_search: AIProviderStatus;
-  vietmap: AIProviderStatus;
   llm_primary_provider: string;
   effective_primary_provider: string | null;
 };
@@ -577,11 +576,6 @@ export const api = {
     request<void>("/admin/settings/brave-search", { method: "PUT", body: JSON.stringify({ api_key: apiKey }) }),
   clearBraveSearchConfig: () => request<void>("/admin/settings/brave-search", { method: "DELETE" }),
   testBraveSearch: () => request<{ ok: boolean; message: string }>("/admin/settings/brave-search/test", { method: "POST" }),
-
-  setVietmapConfig: (apiKey: string) =>
-    request<void>("/admin/settings/vietmap", { method: "PUT", body: JSON.stringify({ api_key: apiKey }) }),
-  clearVietmapConfig: () => request<void>("/admin/settings/vietmap", { method: "DELETE" }),
-  testVietmap: () => request<{ ok: boolean; message: string }>("/admin/settings/vietmap/test", { method: "POST" }),
 
   setLlmPrimaryProvider: (provider: string) =>
     request<void>("/admin/settings/llm-primary-provider", {

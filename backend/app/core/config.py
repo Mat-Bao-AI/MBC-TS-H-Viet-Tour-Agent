@@ -67,10 +67,6 @@ class Settings(BaseSettings):
     # cấu hình Admin đã mã hoá trong DB; biến này là fallback cho vận hành cũ.
     brave_search_api_key: str = ""
 
-    # Nhà cung cấp bản đồ Việt Nam. Giá trị UI/DB được ưu tiên qua
-    # dynamic_config; biến này giữ vai trò fallback cho vận hành cũ.
-    vietmap_api_key: str = ""
-
     # Provider thử trước khi có ≥2 provider cùng cấu hình ("gemini" | "azure_openai")
     llm_primary_provider: str = "gemini"
 

@@ -17,7 +17,6 @@ class AIProviderStatus(BaseModel):
 class SystemSettingsOut(BaseModel):
     ai_providers: list[AIProviderStatus]
     brave_search: AIProviderStatus
-    vietmap: AIProviderStatus
     llm_primary_provider: str
     effective_primary_provider: str | None
 
@@ -35,10 +34,6 @@ class AzureOpenAIConfigIn(BaseModel):
 
 
 class BraveSearchConfigIn(BaseModel):
-    api_key: str
-
-
-class VietmapConfigIn(BaseModel):
     api_key: str
 
 

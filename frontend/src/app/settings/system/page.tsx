@@ -319,73 +319,10 @@ function BraveSearchCard({ status, onSaved }: { status: AIProviderStatus; onSave
   );
 }
 
-function VietmapCard({ status, onSaved }: { status: AIProviderStatus; onSaved: (msg: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-
-  async function save() {
-    if (!apiKey.trim()) return setResult("Nhập VIETMAP API key trước khi lưu.");
-    setBusy(true);
-    try {
-      await api.setVietmapConfig(apiKey.trim());
-      setApiKey("");
-      setEditing(false);
-      onSaved("Đã lưu VIETMAP Maps. Hệ thống sẽ dùng key này cho bản đồ Việt Nam.");
-    } catch (err) {
-      setResult(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function test() {
-    setBusy(true);
-    try {
-      const response = await api.testVietmap();
-      setResult(`${response.ok ? "✅" : "❌"} ${response.message}`);
-    } catch (err) {
-      setResult(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-semibold">{status.label}</p>
-          <p className="text-xs text-muted-foreground">Bản đồ, tìm địa chỉ và chỉ đường tại Việt Nam.</p>
-        </div>
-        <StatusBadge configured={status.configured} source={status.source} />
-      </div>
-      <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-        VIETMAP có hạn mức dùng thử miễn phí. Khi lưu lượng tăng, thay API key gói phù hợp tại đây mà không cần sửa ứng dụng.
-      </p>
-      {editing ? (
-        <div className="flex flex-col gap-2">
-          <Field label="API Key" type="password" value={apiKey} onChange={setApiKey} placeholder="Nhập API key VIETMAP" />
-          <div className="flex gap-2"><Button size="sm" onClick={save} disabled={busy}>{busy ? "Đang kiểm tra..." : "Lưu và kiểm tra"}</Button><Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={busy}>Huỷ</Button></div>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Sửa</Button>
-          {status.configured && <Button size="sm" variant="outline" onClick={test} disabled={busy}>{busy ? "Đang kiểm tra..." : "Kiểm tra kết nối"}</Button>}
-          {status.source === "db" && <Button size="sm" variant="outline" disabled={busy} onClick={async () => { await api.clearVietmapConfig(); onSaved("Đã xoá VIETMAP khỏi DB."); }}>Xoá khỏi DB</Button>}
-        </div>
-      )}
-      {result && <p className="text-xs text-muted-foreground">{result}</p>}
-    </div>
-  );
-}
-
 const TABS = [
   { key: "brand", label: "Thương hiệu" },
   { key: "users", label: "Người dùng" },
   { key: "ai", label: "AI" },
-  { key: "maps", label: "Bản đồ" },
 ];
 
 export default function SystemSettingsPage() {
@@ -479,12 +416,6 @@ export default function SystemSettingsPage() {
           </section>
         ))}
 
-      {tab === "maps" &&
-        (!settings ? <p className="text-sm text-muted-foreground">Đang tải...</p> : (
-          <section className="flex flex-col gap-3">
-            <VietmapCard status={settings.vietmap} onSaved={(msg) => { setNotice(msg); reload(); }} />
-          </section>
-        ))}
     </div>
   );
 }
